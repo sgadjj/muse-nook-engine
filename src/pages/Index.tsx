@@ -8,6 +8,7 @@ import {
   Sparkles,
   ExternalLink,
   Package,
+  Copy,
 } from "lucide-react";
 import CodePreview from "@/components/CodePreview";
 import StepCard from "@/components/StepCard";
@@ -24,6 +25,7 @@ const Index = () => {
   const [appName, setAppName] = useState("");
   const [appColor, setAppColor] = useState("#22c55e");
   const [step, setStep] = useState<"form" | "result">("form");
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const config: AppConfig = { url, appName, appColor };
 
@@ -35,6 +37,13 @@ const Index = () => {
 
   const handleDownload = () => {
     downloadAllFiles(config);
+  };
+
+  const handleCopySiteUrl = async () => {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 1800);
   };
 
   return (
@@ -162,6 +171,43 @@ const Index = () => {
                 <Download className="w-5 h-5" />
                 تحميل كل الملفات
               </button>
+            </div>
+
+            {/* Cloud APK Tools */}
+            <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-soft space-y-4">
+              <h3 className="text-lg font-bold text-foreground">⚡ تحويل APK بدون جهازك</h3>
+              <p className="text-sm text-muted-foreground">
+                التحويل يتم على سيرفرات أدوات خارجية، وليس على جهازك. انسخ رابط موقعك ثم افتح أي أداة وحوّله مباشرة.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleCopySiteUrl}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-secondary text-secondary-foreground hover:opacity-90 transition-all"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copiedUrl ? "تم نسخ الرابط" : "نسخ رابط الموقع"}
+                </button>
+
+                <a
+                  href="https://www.pwabuilder.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-main text-primary-foreground font-medium hover:opacity-90 transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  فتح PWABuilder
+                </a>
+
+                <a
+                  href="https://webintoapp.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background text-foreground hover:opacity-90 transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  فتح WebIntoApp
+                </a>
+              </div>
             </div>
 
             {/* Generated Files */}
