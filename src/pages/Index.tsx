@@ -46,6 +46,14 @@ const Index = () => {
     setTimeout(() => setCopiedUrl(false), 1800);
   };
 
+  const handleCopyAndOpen = async (toolUrl: string) => {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 1800);
+    window.open(toolUrl, "_blank");
+  };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
@@ -175,39 +183,30 @@ const Index = () => {
 
             {/* Cloud APK Tools */}
             <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-soft space-y-4">
-              <h3 className="text-lg font-bold text-foreground">⚡ تحويل APK بدون جهازك</h3>
+              <h3 className="text-lg font-bold text-foreground">⚡ احصل على APK بضغطة واحدة</h3>
               <p className="text-sm text-muted-foreground">
-                التحويل يتم على سيرفرات أدوات خارجية، وليس على جهازك. انسخ رابط موقعك ثم افتح أي أداة وحوّله مباشرة.
+                اضغط على أي زر وراح ينسخ رابط موقعك تلقائياً ويفتح لك أداة التحويل — فقط الصق الرابط وحمّل الـ APK!
               </p>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={handleCopySiteUrl}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-secondary text-secondary-foreground hover:opacity-90 transition-all"
+                  onClick={() => handleCopyAndOpen("https://www.pwabuilder.com")}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl gradient-main text-primary-foreground font-semibold hover:opacity-90 transition-all shadow-glow"
                 >
                   <Copy className="w-4 h-4" />
-                  {copiedUrl ? "تم نسخ الرابط" : "نسخ رابط الموقع"}
+                  نسخ الرابط + فتح PWABuilder
                 </button>
 
-                <a
-                  href="https://www.pwabuilder.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl gradient-main text-primary-foreground font-medium hover:opacity-90 transition-all"
+                <button
+                  onClick={() => handleCopyAndOpen("https://webintoapp.com")}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-border bg-secondary text-secondary-foreground font-medium hover:opacity-90 transition-all"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  فتح PWABuilder
-                </a>
-
-                <a
-                  href="https://webintoapp.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background text-foreground hover:opacity-90 transition-all"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  فتح WebIntoApp
-                </a>
+                  <Copy className="w-4 h-4" />
+                  نسخ الرابط + فتح WebIntoApp
+                </button>
               </div>
+              {copiedUrl && (
+                <p className="text-xs text-primary font-medium">✅ تم نسخ الرابط — الصقه في الأداة</p>
+              )}
             </div>
 
             {/* Generated Files */}
