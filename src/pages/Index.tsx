@@ -9,7 +9,10 @@ import {
   ExternalLink,
   Package,
   MonitorSmartphone,
+  Loader2,
+  Box,
 } from "lucide-react";
+import { toast } from "sonner";
 import CodePreview from "@/components/CodePreview";
 import StepCard from "@/components/StepCard";
 import {
@@ -19,6 +22,7 @@ import {
   downloadAllFiles,
   type AppConfig,
 } from "@/lib/generateFiles";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [url, setUrl] = useState("");
@@ -34,8 +38,43 @@ const Index = () => {
     if (isValid) setStep("result");
   };
 
+  const [isGeneratingApk, setIsGeneratingApk] = useState(false);
+
   const handleDownload = () => {
     downloadAllFiles(config);
+  };
+
+  const handleGenerateApk = async () => {
+    setIsGeneratingApk(true);
+    toast.info("جاري توليد ملف APK... قد يستغرق دقيقة أو أكثر");
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-apk", {
+        body: {
+          url: config.url,
+          appName: config.appName,
+          appColor: config.appColor,
+        },
+      });
+
+      if (error) throw error;
+
+      // data is the zip ArrayBuffer
+      const blob = new Blob([data], { type: "application/zip" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `${config.appName.replace(/\s/g, "-")}-apk.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+      toast.success("تم تحميل ملف APK بنجاح! 🎉");
+    } catch (err: any) {
+      console.error("APK generation error:", err);
+      toast.error("فشل توليد APK. تأكد أن الموقع يحتوي على manifest.json صالح.");
+    } finally {
+      setIsGeneratingApk(false);
+    }
   };
 
 
@@ -162,7 +201,19 @@ const Index = () => {
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl gradient-main text-primary-foreground font-semibold shadow-glow hover:opacity-90 transition-all"
               >
                 <Download className="w-5 h-5" />
-                تحميل كل الملفات
+                تحميل ملفات PWA
+              </button>
+              <button
+                onClick={handleGenerateApk}
+                disabled={isGeneratingApk}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold border border-border hover:bg-accent transition-all disabled:opacity-50"
+              >
+                {isGeneratingApk ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Box className="w-5 h-5" />
+                )}
+                {isGeneratingApk ? "جاري التوليد..." : "توليد APK (أندرويد)"}
               </button>
             </div>
 
