@@ -8,7 +8,7 @@ import {
   Sparkles,
   ExternalLink,
   Package,
-  Copy,
+  MonitorSmartphone,
 } from "lucide-react";
 import CodePreview from "@/components/CodePreview";
 import StepCard from "@/components/StepCard";
@@ -25,7 +25,6 @@ const Index = () => {
   const [appName, setAppName] = useState("");
   const [appColor, setAppColor] = useState("#22c55e");
   const [step, setStep] = useState<"form" | "result">("form");
-  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const config: AppConfig = { url, appName, appColor };
 
@@ -39,20 +38,6 @@ const Index = () => {
     downloadAllFiles(config);
   };
 
-  const handleCopySiteUrl = async () => {
-    if (!url) return;
-    await navigator.clipboard.writeText(url);
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 1800);
-  };
-
-  const handleCopyAndOpen = async (toolUrl: string) => {
-    if (!url) return;
-    await navigator.clipboard.writeText(url);
-    setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 1800);
-    window.open(toolUrl, "_blank");
-  };
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
@@ -181,34 +166,6 @@ const Index = () => {
               </button>
             </div>
 
-            {/* Cloud APK Tools */}
-            <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-soft space-y-4">
-              <h3 className="text-lg font-bold text-foreground">⚡ احصل على APK بضغطة واحدة</h3>
-              <p className="text-sm text-muted-foreground">
-                اضغط على أي زر وراح ينسخ رابط موقعك تلقائياً ويفتح لك أداة التحويل — فقط الصق الرابط وحمّل الـ APK!
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => handleCopyAndOpen("https://www.pwabuilder.com")}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl gradient-main text-primary-foreground font-semibold hover:opacity-90 transition-all shadow-glow"
-                >
-                  <Copy className="w-4 h-4" />
-                  نسخ الرابط + فتح PWABuilder
-                </button>
-
-                <button
-                  onClick={() => handleCopyAndOpen("https://webintoapp.com")}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-border bg-secondary text-secondary-foreground font-medium hover:opacity-90 transition-all"
-                >
-                  <Copy className="w-4 h-4" />
-                  نسخ الرابط + فتح WebIntoApp
-                </button>
-              </div>
-              {copiedUrl && (
-                <p className="text-xs text-primary font-medium">✅ تم نسخ الرابط — الصقه في الأداة</p>
-              )}
-            </div>
-
             {/* Generated Files */}
             <div className="space-y-5">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -220,40 +177,46 @@ const Index = () => {
               <CodePreview filename="index.html" code={generateIndexHtml(config)} />
             </div>
 
-            {/* Steps to APK */}
+            {/* Steps */}
             <div className="bg-card rounded-2xl border border-border p-6 sm:p-8 shadow-soft space-y-6">
-              <h3 className="text-lg font-bold text-foreground">
-                📱 كيف تحوّل الملفات لـ APK؟
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <MonitorSmartphone className="w-5 h-5 text-primary" />
+                📲 كيف تثبّت التطبيق على جوالك؟
               </h3>
               <div className="space-y-6">
-                <StepCard step={1} title="ارفع الملفات على موقعك">
+                <StepCard step={1} title="حمّل الملفات وارفعها على استضافتك">
                   <p>
-                    ارفع الملفات الثلاثة (manifest.json, sw.js, index.html) على
-                    استضافتك أو استخدمها مع أي خدمة استضافة مجانية مثل Netlify أو
-                    Vercel.
+                    حمّل الملفات (manifest.json, sw.js, index.html) وارفعها على 
+                    استضافتك. يمكنك استخدام استضافة مجانية مثل{" "}
+                    <a href="https://netlify.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Netlify</a>
+                    {" "}أو{" "}
+                    <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Vercel</a>
+                    .
                   </p>
                 </StepCard>
 
-                <StepCard step={2} title="افتح PWABuilder">
-                  <p className="mb-3">
-                    روح لموقع PWABuilder المجاني من مايكروسوفت وأدخل رابط موقعك:
+                <StepCard step={2} title="أضف أيقونات التطبيق">
+                  <p>
+                    أضف ملفين للأيقونة بنفس المجلد: <code className="font-mono bg-secondary px-1.5 py-0.5 rounded text-sm">icon-192.png</code> و <code className="font-mono bg-secondary px-1.5 py-0.5 rounded text-sm">icon-512.png</code>.
+                    يمكنك إنشاؤها مجاناً من{" "}
+                    <a href="https://favicon.io/favicon-generator/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium inline-flex items-center gap-1">
+                      <ExternalLink className="w-3 h-3" />
+                      favicon.io
+                    </a>
                   </p>
-                  <a
-                    href="https://www.pwabuilder.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    pwabuilder.com
-                  </a>
                 </StepCard>
 
-                <StepCard step={3} title="حمّل الـ APK">
-                  <p>
-                    PWABuilder راح يفحص موقعك ويعطيك خيار تحميل APK جاهز للأندرويد
-                    بدون ما تحتاج Android Studio أو أي أداة تطوير!
-                  </p>
+                <StepCard step={3} title="افتح الرابط من جوالك وثبّت التطبيق">
+                  <div className="space-y-3">
+                    <p>
+                      افتح رابط موقعك من متصفح الجوال. راح يظهر لك بانر <strong>"ثبّت التطبيق"</strong> تلقائياً — اضغط عليه وخلاص! 🎉
+                    </p>
+                    <div className="bg-accent/60 rounded-xl p-4 space-y-2 text-sm">
+                      <p className="font-semibold text-accent-foreground">💡 إذا ما ظهر البانر:</p>
+                      <p><strong>أندرويد (Chrome):</strong> اضغط ⋮ ثم "إضافة إلى الشاشة الرئيسية"</p>
+                      <p><strong>آيفون (Safari):</strong> اضغط مشاركة ↑ ثم "إضافة للشاشة الرئيسية"</p>
+                    </div>
+                  </div>
                 </StepCard>
               </div>
             </div>
