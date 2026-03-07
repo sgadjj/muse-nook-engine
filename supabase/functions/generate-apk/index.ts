@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { ZipReader, BlobReader, BlobWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,19 +23,14 @@ serve(async (req) => {
       );
     }
 
-    // Parse the URL to get host and start path
     const parsedUrl = new URL(url);
     const host = parsedUrl.origin;
     const startUrl = parsedUrl.pathname || "/";
 
-    // Generate a package ID if not provided
     const finalPackageId = packageId || 
       `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-
-    // Default icon if none provided
     const finalIconUrl = iconUrl || `${host}/favicon.ico`;
 
-    // Build the request body for PWABuilder CloudAPK
     const apkOptions = {
       appVersion: "1.0.0",
       appVersionCode: 1,
@@ -43,7 +39,7 @@ serve(async (req) => {
       enableNotifications: false,
       enableSiteSettingsShortcut: true,
       fallbackType: "customtabs",
-      host: host,
+      host,
       iconUrl: finalIconUrl,
       includeSourceCode: false,
       launcherName: appName,
@@ -61,13 +57,13 @@ serve(async (req) => {
         countryCode: "US",
       },
       splashScreenFadeOutDuration: 300,
-      startUrl: startUrl,
+      startUrl,
       themeColor: appColor,
       webManifestUrl: `${host}/manifest.json`,
       pwaUrl: url,
     };
 
-    console.log("Sending request to CloudAPK:", JSON.stringify(apkOptions));
+    console.log("Sending request to CloudAPK");
 
     const response = await fetch(`${CLOUDAPK_URL}/generateAppPackage`, {
       method: "POST",
@@ -83,23 +79,48 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error("CloudAPK error:", response.status, errorText);
       return new Response(
-        JSON.stringify({ 
-          error: "فشل توليد APK", 
-          details: errorText,
-          status: response.status 
-        }),
+        JSON.stringify({ error: "فشل توليد APK", details: errorText, status: response.status }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // The response is a zip file containing the APK
-    const zipBuffer = await response.arrayBuffer();
+    // Get the zip and extract the .apk file from it
+    const zipBlob = await response.blob();
     
+    try {
+      const zipReader = new ZipReader(new BlobReader(zipBlob));
+      const entries = await zipReader.getEntries();
+      
+      // Find the .apk file inside the zip
+      const apkEntry = entries.find((e: any) => e.filename.endsWith(".apk"));
+      
+      if (apkEntry) {
+        const apkBlob = await apkEntry.getData(new BlobWriter("application/vnd.android.package-archive"));
+        const apkBuffer = await apkBlob.arrayBuffer();
+        await zipReader.close();
+        
+        const safeName = appName.replace(/\s/g, "-");
+        return new Response(apkBuffer, {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/vnd.android.package-archive",
+            "Content-Disposition": `attachment; filename="${safeName}.apk"`,
+          },
+        });
+      }
+      
+      await zipReader.close();
+    } catch (zipErr) {
+      console.log("Could not extract APK from zip, returning zip as-is:", zipErr);
+    }
+
+    // Fallback: return the zip if we couldn't extract
+    const zipBuffer = await zipBlob.arrayBuffer();
     return new Response(zipBuffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${appName.replace(/\s/g, "-")}-apk.zip"`,
+        "Content-Disposition": `attachment; filename="${appName.replace(/\s/g, "-")}.zip"`,
       },
     });
   } catch (error) {
