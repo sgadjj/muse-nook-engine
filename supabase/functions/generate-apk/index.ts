@@ -30,7 +30,7 @@ serve(async (req) => {
     const finalPackageId = packageId || 
       `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
     // Use PNG favicon source to avoid CloudAPK failing on image/x-icon
-    const fallbackPngIcon = `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(host)}&sz=512`;
+    const fallbackPngIcon = `https://www.google.com/s2/favicons?sz=512&domain=${parsedUrl.hostname}`;
     const finalIconUrl = iconUrl || fallbackPngIcon;
 
     const apkOptions = {

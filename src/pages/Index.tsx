@@ -151,7 +151,10 @@ const Index = () => {
       toast.success("تم تنزيل التطبيق مباشرة ✅");
     } catch (err: any) {
       console.error("APK generation error:", err);
-      toast.error("فشل توليد APK. جرّب تحميل ملفات PWA بدلاً عنه.");
+      const message = typeof err?.message === "string" && err.message.length < 160
+        ? err.message
+        : "فشل توليد APK حالياً. جرّب رابط موقع آخر أو أعد المحاولة خلال دقيقة.";
+      toast.error(message);
     } finally {
       setIsGeneratingApk(false);
     }
