@@ -18,7 +18,7 @@ import {
   downloadAllFiles,
   type AppConfig,
 } from "@/lib/generateFiles";
-import { supabase } from "@/integrations/supabase/client";
+
 
 function extractAppName(url: string): string {
   try {
