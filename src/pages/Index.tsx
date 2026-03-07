@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Globe,
   Smartphone,
-  Download,
   Loader2,
   Box,
   Sparkles,
