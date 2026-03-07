@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Globe,
   Smartphone,
-  Download,
   Loader2,
   Box,
   Sparkles,
@@ -18,7 +17,7 @@ import {
   downloadAllFiles,
   type AppConfig,
 } from "@/lib/generateFiles";
-import { supabase } from "@/integrations/supabase/client";
+
 
 function extractAppName(url: string): string {
   try {
@@ -130,22 +129,31 @@ const Index = () => {
       }
 
       const blob = await response.blob();
-      const safeName = config.appName.replace(/\s/g, "-");
-      const isApk = blob.type.includes("android") || blob.type.includes("octet");
+      const safeName = config.appName.replace(/\s/g, "-") || "app";
+      const contentType = response.headers.get("content-type") || blob.type;
+      const disposition = response.headers.get("content-disposition") || "";
+      const headerName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+      const isApk = contentType.includes("android") || (headerName?.endsWith(".apk") ?? false);
       const ext = isApk ? "apk" : "zip";
+      const filename = headerName || `${safeName}.${ext}`;
 
       const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `${safeName}.${ext}`;
+      a.download = filename;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(downloadUrl);
-      toast.success("تم تحميل التطبيق بنجاح! 🎉 ثبّته على جوالك");
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
+      toast.success("تم تنزيل التطبيق مباشرة ✅");
     } catch (err: any) {
       console.error("APK generation error:", err);
-      toast.error("فشل توليد APK. جرّب تحميل ملفات PWA بدلاً عنه.");
+      const message = typeof err?.message === "string" && err.message.length < 160
+        ? err.message
+        : "فشل توليد APK حالياً. جرّب رابط موقع آخر أو أعد المحاولة خلال دقيقة.";
+      toast.error(message);
     } finally {
       setIsGeneratingApk(false);
     }

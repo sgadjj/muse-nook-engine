@@ -3,17 +3,104 @@ import { ZipReader, BlobReader, BlobWriter } from "https://deno.land/x/zipjs@v2.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
+async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
+  const candidates: string[] = [];
+
+  try {
+    const pageResp = await fetch(siteUrl, { method: "GET" });
+    if (pageResp.ok) {
+      const html = await pageResp.text();
+      const iconMatches = [...html.matchAll(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi)];
+      for (const m of iconMatches) {
+        try {
+          candidates.push(new URL(m[1], host).toString());
+        } catch {
+          // ignore invalid icon URL
+        }
+      }
+    }
+  } catch {
+    // continue to fallback candidates
+  }
+
+  candidates.push(`${host}/apple-touch-icon.png`);
+  candidates.push(`${host}/favicon.png`);
+  candidates.push(`https://logo.clearbit.com/${new URL(siteUrl).hostname}`);
+
+  for (const candidate of [...new Set(candidates)]) {
+    try {
+      const r = await fetch(candidate, { method: "GET" });
+      const ct = (r.headers.get("content-type") || "").toLowerCase();
+      if (r.ok && ct.startsWith("image/") && !ct.includes("x-icon")) {
+        return candidate;
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  return undefined;
+}
+
+function makeManifestPayload(appName: string, appColor: string, startUrl: string, iconUrl: string) {
+  return {
+    name: appName,
+    short_name: appName,
+    start_url: startUrl || "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: appColor,
+    theme_color: appColor,
+    icons: [
+      {
+        src: iconUrl,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any maskable",
+      },
+      {
+        src: iconUrl,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any maskable",
+      },
+    ],
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const reqUrl = new URL(req.url);
+
+    // Public manifest endpoint used by CloudAPK (prevents 404 manifest errors)
+    if (req.method === "GET" && reqUrl.searchParams.get("mode") === "manifest") {
+      const appName = reqUrl.searchParams.get("appName") || "WebApp";
+      const appColor = reqUrl.searchParams.get("appColor") || "#22c55e";
+      const startUrl = reqUrl.searchParams.get("startUrl") || "/";
+      const iconUrl = reqUrl.searchParams.get("iconUrl") || "https://logo.clearbit.com/example.com";
+
+      return new Response(
+        JSON.stringify(makeManifestPayload(appName, appColor, startUrl, iconUrl), null, 2),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/manifest+json",
+            "Cache-Control": "public, max-age=60",
+          },
+        }
+      );
+    }
+
     const { url, appName, appColor, packageId, iconUrl } = await req.json();
 
     if (!url || !appName || !appColor) {
@@ -27,9 +114,18 @@ serve(async (req) => {
     const host = parsedUrl.origin;
     const startUrl = parsedUrl.pathname || "/";
 
-    const finalPackageId = packageId || 
-      `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    const finalIconUrl = iconUrl || `${host}/favicon.ico`;
+    const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host);
+
+    if (!resolvedIconUrl) {
+      return new Response(
+        JSON.stringify({ error: "تعذر العثور على أيقونة PNG صالحة للموقع" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
+    const generatedManifestUrl = `${publicBaseUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
 
     const apkOptions = {
       appVersion: "1.0.0",
@@ -40,7 +136,7 @@ serve(async (req) => {
       enableSiteSettingsShortcut: true,
       fallbackType: "customtabs",
       host,
-      iconUrl: finalIconUrl,
+      iconUrl: resolvedIconUrl,
       includeSourceCode: false,
       launcherName: appName,
       name: appName,
@@ -59,11 +155,9 @@ serve(async (req) => {
       splashScreenFadeOutDuration: 300,
       startUrl,
       themeColor: appColor,
-      webManifestUrl: `${host}/manifest.json`,
+      webManifestUrl: generatedManifestUrl,
       pwaUrl: url,
     };
-
-    console.log("Sending request to CloudAPK");
 
     const response = await fetch(`${CLOUDAPK_URL}/generateAppPackage`, {
       method: "POST",
@@ -77,56 +171,49 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("CloudAPK error:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: "فشل توليد APK", details: errorText, status: response.status }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get the zip and extract the .apk file from it
     const zipBlob = await response.blob();
-    
+
     try {
       const zipReader = new ZipReader(new BlobReader(zipBlob));
       const entries = await zipReader.getEntries();
-      
-      // Find the .apk file inside the zip
       const apkEntry = entries.find((e: any) => e.filename.endsWith(".apk"));
-      
+
       if (apkEntry) {
         const apkBlob = await apkEntry.getData(new BlobWriter("application/vnd.android.package-archive"));
         const apkBuffer = await apkBlob.arrayBuffer();
         await zipReader.close();
-        
-        const safeName = appName.replace(/\s/g, "-");
+
         return new Response(apkBuffer, {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/vnd.android.package-archive",
-            "Content-Disposition": `attachment; filename="${safeName}.apk"`,
+            "Content-Disposition": `attachment; filename="${appName.replace(/\s/g, "-") || "app"}.apk"`,
           },
         });
       }
-      
+
       await zipReader.close();
-    } catch (zipErr) {
-      console.log("Could not extract APK from zip, returning zip as-is:", zipErr);
+    } catch {
+      // fallback to zip response below
     }
 
-    // Fallback: return the zip if we couldn't extract
     const zipBuffer = await zipBlob.arrayBuffer();
     return new Response(zipBuffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${appName.replace(/\s/g, "-")}.zip"`,
+        "Content-Disposition": `attachment; filename="${appName.replace(/\s/g, "-") || "app"}.zip"`,
       },
     });
   } catch (error) {
-    console.error("Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
