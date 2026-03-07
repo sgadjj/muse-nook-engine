@@ -124,8 +124,8 @@ serve(async (req) => {
       );
     }
 
-    const baseFnUrl = `${reqUrl.origin}${reqUrl.pathname}`;
-    const generatedManifestUrl = `${baseFnUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
+    const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
+    const generatedManifestUrl = `${publicBaseUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
 
     const apkOptions = {
       appVersion: "1.0.0",
