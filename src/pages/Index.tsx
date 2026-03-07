@@ -104,34 +104,45 @@ const Index = () => {
 
   const handleGenerateApk = async () => {
     setIsGeneratingApk(true);
-    toast.info("جاري توليد ملف APK... قد يستغرق دقيقة");
+    toast.info("جاري توليد التطبيق... قد يستغرق دقيقة");
     try {
-      const { data, error } = await supabase.functions.invoke("generate-apk", {
-        body: {
+      // Call edge function directly via fetch for proper binary handling
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-apk`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
           url: config.url,
           appName: config.appName,
           appColor: config.appColor,
-        },
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
 
-      // Detect if response is APK or ZIP
-      const contentType = data instanceof Blob ? data.type : "application/vnd.android.package-archive";
-      const isApk = contentType.includes("android") || contentType.includes("octet");
+      const blob = await response.blob();
+      const safeName = config.appName.replace(/\s/g, "-");
+      const isApk = blob.type.includes("android") || blob.type.includes("octet");
       const ext = isApk ? "apk" : "zip";
-      const mimeType = isApk ? "application/vnd.android.package-archive" : "application/zip";
 
-      const blob = new Blob([data], { type: mimeType });
       const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `${config.appName.replace(/\s/g, "-")}.${ext}`;
+      a.download = `${safeName}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(downloadUrl);
-      toast.success("تم تحميل التطبيق بنجاح! 🎉");
+      toast.success("تم تحميل التطبيق بنجاح! 🎉 ثبّته على جوالك");
     } catch (err: any) {
       console.error("APK generation error:", err);
       toast.error("فشل توليد APK. جرّب تحميل ملفات PWA بدلاً عنه.");
