@@ -116,16 +116,22 @@ const Index = () => {
 
       if (error) throw error;
 
-      const blob = new Blob([data], { type: "application/zip" });
+      // Detect if response is APK or ZIP
+      const contentType = data instanceof Blob ? data.type : "application/vnd.android.package-archive";
+      const isApk = contentType.includes("android") || contentType.includes("octet");
+      const ext = isApk ? "apk" : "zip";
+      const mimeType = isApk ? "application/vnd.android.package-archive" : "application/zip";
+
+      const blob = new Blob([data], { type: mimeType });
       const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `${config.appName.replace(/\s/g, "-")}-apk.zip`;
+      a.download = `${config.appName.replace(/\s/g, "-")}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(downloadUrl);
-      toast.success("تم تحميل ملف APK بنجاح! 🎉");
+      toast.success("تم تحميل التطبيق بنجاح! 🎉");
     } catch (err: any) {
       console.error("APK generation error:", err);
       toast.error("فشل توليد APK. جرّب تحميل ملفات PWA بدلاً عنه.");
