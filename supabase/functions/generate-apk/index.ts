@@ -8,6 +8,49 @@ const corsHeaders = {
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
+async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
+  const candidates: string[] = [];
+
+  try {
+    const pageResp = await fetch(siteUrl, { method: "GET" });
+    if (pageResp.ok) {
+      const html = await pageResp.text();
+      const iconMatches = [...html.matchAll(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi)];
+      for (const m of iconMatches) {
+        const href = m[1];
+        try {
+          const absolute = new URL(href, host).toString();
+          candidates.push(absolute);
+        } catch {
+          // skip invalid url
+        }
+      }
+    }
+  } catch {
+    // ignore and continue fallback candidates
+  }
+
+  candidates.push(`${host}/apple-touch-icon.png`);
+  candidates.push(`${host}/favicon.png`);
+  candidates.push(`https://logo.clearbit.com/${new URL(siteUrl).hostname}`);
+
+  const uniqueCandidates = [...new Set(candidates)];
+
+  for (const candidate of uniqueCandidates) {
+    try {
+      const r = await fetch(candidate, { method: "GET" });
+      const ct = (r.headers.get("content-type") || "").toLowerCase();
+      if (r.ok && ct.startsWith("image/") && !ct.includes("x-icon")) {
+        return candidate;
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  return undefined;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,9 +72,14 @@ serve(async (req) => {
 
     const finalPackageId = packageId || 
       `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    // Use PNG favicon source to avoid CloudAPK failing on image/x-icon
-    const fallbackPngIcon = `https://www.google.com/s2/favicons?sz=512&domain=${parsedUrl.hostname}`;
-    const finalIconUrl = iconUrl || fallbackPngIcon;
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host);
+
+    if (!resolvedIconUrl) {
+      return new Response(
+        JSON.stringify({ error: "تعذر العثور على أيقونة PNG صالحة للموقع" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const apkOptions = {
       appVersion: "1.0.0",
@@ -42,7 +90,7 @@ serve(async (req) => {
       enableSiteSettingsShortcut: true,
       fallbackType: "customtabs",
       host,
-      iconUrl: finalIconUrl,
+      iconUrl: resolvedIconUrl,
       includeSourceCode: false,
       launcherName: appName,
       name: appName,
