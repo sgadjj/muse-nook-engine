@@ -64,6 +64,7 @@ serve(async (req) => {
 
     const finalPackageId = packageId || 
       `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host);
     const resolvedManifestUrl = await resolveManifestUrl(url, host);
 
     if (!resolvedIconUrl) {
