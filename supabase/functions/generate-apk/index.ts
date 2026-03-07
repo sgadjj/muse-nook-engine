@@ -8,39 +8,31 @@ const corsHeaders = {
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
-async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
+async function resolveManifestUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
 
   try {
     const pageResp = await fetch(siteUrl, { method: "GET" });
     if (pageResp.ok) {
       const html = await pageResp.text();
-      const iconMatches = [...html.matchAll(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi)];
-      for (const m of iconMatches) {
-        const href = m[1];
-        try {
-          const absolute = new URL(href, host).toString();
-          candidates.push(absolute);
-        } catch {
-          // skip invalid url
-        }
+      const manifestMatch = html.match(/<link[^>]+rel=["'][^"']*manifest[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/i);
+      if (manifestMatch?.[1]) {
+        candidates.push(new URL(manifestMatch[1], host).toString());
       }
     }
   } catch {
-    // ignore and continue fallback candidates
+    // ignore
   }
 
-  candidates.push(`${host}/apple-touch-icon.png`);
-  candidates.push(`${host}/favicon.png`);
-  candidates.push(`https://logo.clearbit.com/${new URL(siteUrl).hostname}`);
+  candidates.push(`${host}/manifest.webmanifest`);
+  candidates.push(`${host}/manifest.json`);
 
   const uniqueCandidates = [...new Set(candidates)];
-
   for (const candidate of uniqueCandidates) {
     try {
       const r = await fetch(candidate, { method: "GET" });
       const ct = (r.headers.get("content-type") || "").toLowerCase();
-      if (r.ok && ct.startsWith("image/") && !ct.includes("x-icon")) {
+      if (r.ok && (ct.includes("application/manifest+json") || ct.includes("application/json") || ct.includes("text/plain"))) {
         return candidate;
       }
     } catch {
@@ -72,7 +64,7 @@ serve(async (req) => {
 
     const finalPackageId = packageId || 
       `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host);
+    const resolvedManifestUrl = await resolveManifestUrl(url, host);
 
     if (!resolvedIconUrl) {
       return new Response(
@@ -109,7 +101,7 @@ serve(async (req) => {
       splashScreenFadeOutDuration: 300,
       startUrl,
       themeColor: appColor,
-      webManifestUrl: `${host}/manifest.json`,
+      ...(resolvedManifestUrl ? { webManifestUrl: resolvedManifestUrl } : {}),
       pwaUrl: url,
     };
 
