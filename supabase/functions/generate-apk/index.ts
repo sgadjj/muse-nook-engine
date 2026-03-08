@@ -125,7 +125,7 @@ serve(async (req) => {
     const startUrl = parsedUrl.pathname || "/";
 
     const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host) || FALLBACK_ICON_URL;
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host) || makeFallbackIconUrl(appName, appColor);
 
     const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
     const generatedManifestUrl = `${publicBaseUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
