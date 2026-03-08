@@ -22,14 +22,40 @@ import {
 function extractAppName(url: string): string {
   try {
     const parsed = new URL(url);
-    // Remove www. and get domain name
-    const host = parsed.hostname.replace(/^www\./, "");
-    // Take first part before dot
-    const name = host.split(".")[0];
-    // Capitalize first letter
-    return name.charAt(0).toUpperCase() + name.slice(1);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const parts = host.split(".").filter(Boolean);
+    if (!parts.length) return "MyApp";
+
+    const commonSecondLevel = new Set(["co", "com", "net", "org", "gov", "edu", "ac"]);
+    const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop"]);
+
+    let baseLabel = parts[Math.max(parts.length - 2, 0)] || parts[0];
+    if (
+      parts.length >= 3 &&
+      commonSecondLevel.has(parts[parts.length - 2]) &&
+      parts[parts.length - 1].length === 2
+    ) {
+      baseLabel = parts[parts.length - 3];
+    }
+
+    const picked = [baseLabel, ...parts].find(
+      (label) => !genericLabels.has(label) && /[\p{L}\p{N}]/u.test(label)
+    ) || baseLabel;
+
+    const words = picked
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const compact = words
+      .slice(0, 2)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join("");
+
+    return compact.slice(0, 14) || "MyApp";
   } catch {
-    return "";
+    return "MyApp";
   }
 }
 
