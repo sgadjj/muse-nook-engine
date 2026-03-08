@@ -166,7 +166,13 @@ serve(async (req) => {
     }
 
     if (req.method === "POST") {
-      const { appUrl, appName, appColor, packageId } = await req.json();
+      const payload = await req.json();
+      const { runId, appUrl, appName, appColor, packageId } = payload;
+
+      if (runId) {
+        return await getRunStatusResponse(String(runId), resolvedRepo, githubToken);
+      }
+
       if (!appUrl || !appName) {
         return new Response(
           JSON.stringify({ error: "appUrl and appName are required" }),
