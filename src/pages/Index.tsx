@@ -345,6 +345,7 @@ const Index = () => {
   };
 
 
+  return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-20">
