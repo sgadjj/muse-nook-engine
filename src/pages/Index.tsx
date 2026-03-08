@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   FileDown,
   Eye,
-  Zap,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
