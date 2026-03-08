@@ -82,15 +82,9 @@ jobs:
               "${DIR}/ic_launcher.png"
           done
 
-      - name: Create Gradle wrapper
-        working-directory: android-template
-        run: gradle wrapper --gradle-version 8.5
-
       - name: Build debug APK
         working-directory: android-template
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK
         run: |
