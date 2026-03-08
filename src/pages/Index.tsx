@@ -142,6 +142,8 @@ const Index = () => {
   const [isGeneratingApk, setIsGeneratingApk] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isValidUrl = useCallback((u: string) => {
     try {
