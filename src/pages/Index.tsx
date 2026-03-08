@@ -238,6 +238,62 @@ const Index = () => {
     }
   };
 
+  useEffect(() => {
+    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
+  }, []);
+
+  const handleNativeBuild = async () => {
+    if (hasPreviewToken(url)) { toast.error("استخدم رابط منشور نهائي."); return; }
+    setNativeBuildStatus("triggering");
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || data.details || "فشل بدء البناء");
+      const runId = data.runId;
+      if (!runId) throw new Error("لم يتم العثور على معرّف البناء");
+      setNativeBuildStatus("building");
+      toast.info("⚙️ جاري بناء تطبيق أصلي بدون شريط عنوان... ٣-٥ دقائق");
+      pollTimerRef.current = setInterval(async () => {
+        try {
+          const sr = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}`, {
+            headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+          });
+          if (!sr.ok) return;
+          const ct = sr.headers.get("content-type") || "";
+          if (ct.includes("zip") || ct.includes("octet")) {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            setNativeBuildStatus("downloading");
+            const blob = await sr.blob();
+            const dl = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = dl;
+            a.download = `${config.appName.replace(/\s/g, "-") || "app"}-native.zip`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(dl), 1500);
+            setNativeBuildStatus("done");
+            toast.success("✅ تم! فك الضغط وثبّت APK");
+            return;
+          }
+          const sd = await sr.json();
+          if (sd.status === "completed" && sd.conclusion !== "success") {
+            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+            setNativeBuildStatus("error");
+            toast.error("فشل بناء التطبيق.");
+          }
+        } catch { /* continue */ }
+      }, 12000);
+    } catch (err: any) {
+      console.error("Native build error:", err);
+      setNativeBuildStatus("error");
+      toast.error(err?.message || "فشل بدء البناء");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
