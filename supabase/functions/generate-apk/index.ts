@@ -122,7 +122,7 @@ serve(async (req) => {
 
     const parsedUrl = new URL(url);
     const host = parsedUrl.origin;
-    const startUrl = parsedUrl.pathname || "/";
+    const startUrl = `${parsedUrl.pathname || "/"}${parsedUrl.search}${parsedUrl.hash}`;
 
     const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
     const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host) || makeFallbackIconUrl(appName, appColor);
@@ -137,7 +137,7 @@ serve(async (req) => {
       display: "standalone",
       enableNotifications: false,
       enableSiteSettingsShortcut: true,
-      fallbackType: "customtabs",
+      fallbackType: "webview",
       host,
       iconUrl: resolvedIconUrl,
       includeSourceCode: false,
