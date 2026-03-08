@@ -24,6 +24,10 @@ function sanitizeTargetUrl(rawUrl: string): string {
   return parsed.toString();
 }
 
+function isUnsupportedHostForFullscreen(hostname: string): boolean {
+  return hostname.endsWith("lovable.app");
+}
+
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
 
@@ -128,6 +132,16 @@ serve(async (req) => {
 
     const sanitizedUrl = sanitizeTargetUrl(url);
     const parsedUrl = new URL(sanitizedUrl);
+
+    if (isUnsupportedHostForFullscreen(parsedUrl.hostname)) {
+      return new Response(
+        JSON.stringify({
+          error: "هذا الرابط من بيئة معاينة/استضافة lovable.app وسيظهر شريط المتصفح. استخدم رابط نطاقك الحقيقي (custom domain) للحصول على تجربة تطبيق كاملة بدون شريط.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const host = parsedUrl.origin;
     const startUrl = `${parsedUrl.pathname || "/"}${parsedUrl.search}${parsedUrl.hash}`;
 
