@@ -339,39 +339,6 @@ const Index = () => {
               )}
             </button>
 
-            {/* Native WebView APK - GitHub Actions */}
-            <button
-              onClick={handleNativeBuild}
-              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
-              className="w-full py-4 rounded-2xl bg-foreground text-background font-bold text-base shadow-lg hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
-            >
-              {nativeBuildStatus === "triggering" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري بدء البناء...
-                </>
-              ) : nativeBuildStatus === "building" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري البناء... (٣-٥ دقائق)
-                </>
-              ) : nativeBuildStatus === "downloading" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري التحميل...
-                </>
-              ) : nativeBuildStatus === "done" ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  تم التحميل! ✅
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  APK أصلي (بدون شريط عنوان)
-                </>
-              )}
-            </button>
 
             {/* Secondary row */}
             <div className="flex gap-3">
