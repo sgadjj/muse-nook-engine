@@ -75,8 +75,18 @@ serve(async (req) => {
         { headers: getGitHubHeaders(githubToken) }
       );
       if (!runResp.ok) {
+        const errText = await runResp.text();
+        console.error("Failed to check build status:", runResp.status, errText);
+
+        if (runResp.status === 404) {
+          return new Response(
+            JSON.stringify({ status: "queued", conclusion: null, message: "Build started, waiting for status..." }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         return new Response(
-          JSON.stringify({ error: "Failed to check build status" }),
+          JSON.stringify({ error: "Failed to check build status", details: errText }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
