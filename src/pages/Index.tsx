@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Globe,
   Smartphone,
@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   FileDown,
   Eye,
-  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -142,9 +141,6 @@ const Index = () => {
   const [isGeneratingApk, setIsGeneratingApk] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null); // null, "triggering", "building", "downloading", "done", "error"
-  const [nativeBuildRunId, setNativeBuildRunId] = useState<number | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isValidUrl = useCallback((u: string) => {
     try {
@@ -236,111 +232,6 @@ const Index = () => {
       toast.error(message);
     } finally {
       setIsGeneratingApk(false);
-    }
-  };
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    };
-  }, []);
-
-  const handleNativeBuild = async () => {
-    if (hasPreviewToken(url)) {
-      toast.error("استخدم رابط منشور نهائي للتطبيق.");
-      return;
-    }
-
-    setNativeBuildStatus("triggering");
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    try {
-      const resp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          appUrl: config.url,
-          appName: config.appName,
-          appColor: config.appColor,
-        }),
-      });
-
-      const data = await resp.json();
-      if (!resp.ok || !data.success) {
-        throw new Error(data.error || data.details || "فشل بدء البناء");
-      }
-
-      const runId = data.runId;
-      if (!runId) {
-        throw new Error("لم يتم العثور على معرّف البناء");
-      }
-
-      setNativeBuildRunId(runId);
-      setNativeBuildStatus("building");
-      toast.info("⚙️ بدأ بناء التطبيق الأصلي... يستغرق ٣-٥ دقائق");
-
-      // Start polling
-      pollTimerRef.current = setInterval(async () => {
-        try {
-          const statusResp = await fetch(
-            `${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}`,
-            {
-              headers: {
-                apikey: supabaseKey,
-                Authorization: `Bearer ${supabaseKey}`,
-              },
-            }
-          );
-
-          if (!statusResp.ok) return;
-
-          const contentType = statusResp.headers.get("content-type") || "";
-
-          // If it's a ZIP (artifact download), save it
-          if (contentType.includes("zip") || contentType.includes("octet")) {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            setNativeBuildStatus("downloading");
-
-            const blob = await statusResp.blob();
-            const downloadUrl = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = downloadUrl;
-            a.download = `${config.appName.replace(/\s/g, "-") || "app"}-native.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
-
-            setNativeBuildStatus("done");
-            toast.success("✅ تم تحميل التطبيق الأصلي! فك الضغط وثبّت APK");
-            return;
-          }
-
-          const statusData = await statusResp.json();
-
-          if (statusData.status === "completed" && statusData.conclusion === "success") {
-            // Artifact should have been returned as binary, but if JSON returned, try again
-            return;
-          }
-
-          if (statusData.status === "completed" && statusData.conclusion !== "success") {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            setNativeBuildStatus("error");
-            toast.error("فشل بناء التطبيق. جرّب مرة أخرى.");
-          }
-        } catch {
-          // Continue polling
-        }
-      }, 12000);
-    } catch (err: any) {
-      console.error("Native build error:", err);
-      setNativeBuildStatus("error");
-      toast.error(err?.message || "فشل بدء البناء");
     }
   };
 
@@ -447,39 +338,6 @@ const Index = () => {
               )}
             </button>
 
-            {/* Native WebView APK - GitHub Actions */}
-            <button
-              onClick={handleNativeBuild}
-              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
-              className="w-full py-4 rounded-2xl bg-foreground text-background font-bold text-base shadow-lg hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
-            >
-              {nativeBuildStatus === "triggering" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري بدء البناء...
-                </>
-              ) : nativeBuildStatus === "building" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري البناء... (٣-٥ دقائق)
-                </>
-              ) : nativeBuildStatus === "downloading" ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري التحميل...
-                </>
-              ) : nativeBuildStatus === "done" ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  تم التحميل! ✅
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  APK أصلي (بدون شريط عنوان)
-                </>
-              )}
-            </button>
 
             {/* Secondary row */}
             <div className="flex gap-3">
