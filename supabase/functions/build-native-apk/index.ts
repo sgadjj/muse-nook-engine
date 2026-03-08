@@ -97,7 +97,7 @@ serve(async (req) => {
       }
 
       const artifactsResp = await fetch(
-        `${GITHUB_API}/repos/${githubRepo}/actions/runs/${runId}/artifacts`,
+        `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/artifacts`,
         { headers: getGitHubHeaders(githubToken) }
       );
       if (!artifactsResp.ok) {
