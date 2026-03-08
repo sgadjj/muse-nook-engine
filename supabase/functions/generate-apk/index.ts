@@ -24,9 +24,6 @@ function sanitizeTargetUrl(rawUrl: string): string {
   return parsed.toString();
 }
 
-function isUnsupportedHostForFullscreen(hostname: string): boolean {
-  return hostname.endsWith("lovable.app");
-}
 
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
