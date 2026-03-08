@@ -9,6 +9,7 @@ import {
   FileDown,
   Eye,
   Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   generateManifest,
