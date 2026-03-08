@@ -61,6 +61,7 @@ serve(async (req) => {
       console.log(`Resolved GITHUB_REPO automatically: ${resolvedRepo}`);
     }
 
+    if (req.method === "GET") {
       const runId = url.searchParams.get("runId");
       if (!runId) {
         return new Response(
