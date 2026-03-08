@@ -141,7 +141,6 @@ const Index = () => {
   const [isGeneratingApk, setIsGeneratingApk] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   const isValidUrl = useCallback((u: string) => {
     try {
