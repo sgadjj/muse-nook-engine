@@ -162,74 +162,7 @@ serve(async (req) => {
         );
       }
 
-      const runResp = await fetch(
-        `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}`,
-        { headers: getGitHubHeaders(githubToken) }
-      );
-      if (!runResp.ok) {
-        const errText = await runResp.text();
-        console.error("Failed to check build status:", runResp.status, errText);
-
-        if (runResp.status === 404) {
-          return new Response(
-            JSON.stringify({ status: "queued", conclusion: null, message: "Build started, waiting for status..." }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ error: "Failed to check build status", details: errText }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const runData = await runResp.json();
-      if (runData.status !== "completed") {
-        return new Response(
-          JSON.stringify({ status: runData.status, conclusion: null, message: "Build in progress..." }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (runData.conclusion !== "success") {
-        return new Response(
-          JSON.stringify({ status: "completed", conclusion: runData.conclusion, message: "Build failed" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const artifactsResp = await fetch(
-        `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/artifacts`,
-        { headers: getGitHubHeaders(githubToken) }
-      );
-      if (!artifactsResp.ok) {
-        return new Response(
-          JSON.stringify({ error: "Failed to get artifacts" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const artifactsData = await artifactsResp.json();
-      const apkArtifact = artifactsData.artifacts?.find((a: any) => a.name === "native-apk");
-      if (!apkArtifact) {
-        return new Response(
-          JSON.stringify({ status: "completed", conclusion: "success", error: "APK artifact not found" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const downloadResp = await fetch(apkArtifact.archive_download_url, { headers: getGitHubHeaders(githubToken) });
-      if (!downloadResp.ok) {
-        return new Response(
-          JSON.stringify({ error: "Failed to download artifact" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const buffer = await (await downloadResp.blob()).arrayBuffer();
-      return new Response(buffer, {
-        headers: { ...corsHeaders, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="native-apk.zip"` },
-      });
+      return await getRunStatusResponse(runId, resolvedRepo, githubToken);
     }
 
     if (req.method === "POST") {
