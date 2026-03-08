@@ -8,7 +8,15 @@ const corsHeaders = {
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
-const FALLBACK_ICON_URL = "https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png";
+function normalizeHexColor(color: string): string {
+  const hex = (color || "").replace("#", "").trim();
+  return /^[0-9a-fA-F]{6}$/.test(hex) ? hex.toLowerCase() : "22c55e";
+}
+
+function makeFallbackIconUrl(appName: string, appColor: string): string {
+  const bg = normalizeHexColor(appColor);
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(appName || "App")}&size=512&format=png&rounded=true&bold=true&background=${bg}&color=ffffff`;
+}
 
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
