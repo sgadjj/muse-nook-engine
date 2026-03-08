@@ -90,8 +90,32 @@ async function getRunStatusResponse(runId: string, resolvedRepo: string, githubT
   }
 
   if (runData.conclusion !== "success") {
+    let failureDetails: any = null;
+
+    try {
+      const jobsResp = await fetch(
+        `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/jobs?per_page=100`,
+        { headers: getGitHubHeaders(githubToken) }
+      );
+
+      if (jobsResp.ok) {
+        const jobsData = await jobsResp.json();
+        const failedJobs = (jobsData.jobs || []).filter((job: any) => job.conclusion === "failure");
+        failureDetails = failedJobs.map((job: any) => ({
+          name: job.name,
+          conclusion: job.conclusion,
+          url: job.html_url,
+          failedSteps: (job.steps || [])
+            .filter((step: any) => step.conclusion === "failure")
+            .map((step: any) => step.name),
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch job failure details", err);
+    }
+
     return new Response(
-      JSON.stringify({ status: "completed", conclusion: runData.conclusion, message: "Build failed" }),
+      JSON.stringify({ status: "completed", conclusion: runData.conclusion, message: "Build failed", failureDetails }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
