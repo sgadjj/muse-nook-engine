@@ -19,6 +19,21 @@ import {
 } from "@/lib/generateFiles";
 
 
+function toBrandName(raw: string): string {
+  const words = raw
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const compact = words
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join("");
+
+  return compact.slice(0, 14) || "MyApp";
+}
+
 function extractAppName(url: string): string {
   try {
     const parsed = new URL(url);
@@ -26,11 +41,22 @@ function extractAppName(url: string): string {
     const parts = host.split(".").filter(Boolean);
     if (!parts.length) return "MyApp";
 
+    if (host.endsWith("lovable.app") && parts.length >= 3) {
+      const subdomain = parts[0].replace(/^id-preview--/i, "").replace(/--/g, "-");
+      return toBrandName(subdomain);
+    }
+
     const commonSecondLevel = new Set(["co", "com", "net", "org", "gov", "edu", "ac"]);
     const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop"]);
+    const platformDomains = new Set(["vercel.app", "netlify.app", "github.io"]);
+
+    const domainTail = parts.length >= 2 ? `${parts[parts.length - 2]}.${parts[parts.length - 1]}` : "";
 
     let baseLabel = parts[Math.max(parts.length - 2, 0)] || parts[0];
-    if (
+
+    if (platformDomains.has(domainTail) && parts.length >= 3) {
+      baseLabel = parts[0];
+    } else if (
       parts.length >= 3 &&
       commonSecondLevel.has(parts[parts.length - 2]) &&
       parts[parts.length - 1].length === 2
@@ -42,18 +68,7 @@ function extractAppName(url: string): string {
       (label) => !genericLabels.has(label) && /[\p{L}\p{N}]/u.test(label)
     ) || baseLabel;
 
-    const words = picked
-      .replace(/[^\p{L}\p{N}]+/gu, " ")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-
-    const compact = words
-      .slice(0, 2)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join("");
-
-    return compact.slice(0, 14) || "MyApp";
+    return toBrandName(picked);
   } catch {
     return "MyApp";
   }
@@ -90,6 +105,25 @@ function hslToHex(hsl: string): string {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+function sanitizeAppUrl(raw: string): string {
+  try {
+    const parsed = new URL(raw.trim());
+    parsed.searchParams.delete("__lovable_token");
+    return parsed.toString();
+  } catch {
+    return raw;
+  }
+}
+
+function hasPreviewToken(raw: string): boolean {
+  try {
+    const parsed = new URL(raw.trim());
+    return parsed.searchParams.has("__lovable_token");
+  } catch {
+    return false;
+  }
+}
+
 const Index = () => {
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
@@ -107,20 +141,22 @@ const Index = () => {
     }
   }, []);
 
+  const normalizedUrl = sanitizeAppUrl(url);
+
   // Auto-extract app name and color when URL changes
   useEffect(() => {
-    if (isValidUrl(url)) {
-      const name = extractAppName(url);
+    if (isValidUrl(normalizedUrl)) {
+      const name = extractAppName(normalizedUrl);
       setAppName(name);
-      const color = extractThemeColor(url);
+      const color = extractThemeColor(normalizedUrl);
       setAppColor(hslToHex(color));
       setIsReady(true);
     } else {
       setIsReady(false);
     }
-  }, [url, isValidUrl]);
+  }, [normalizedUrl, isValidUrl]);
 
-  const config: AppConfig = { url, appName, appColor };
+  const config: AppConfig = { url: normalizedUrl, appName, appColor };
 
   const handleDownloadPWA = () => {
     downloadAllFiles(config);
