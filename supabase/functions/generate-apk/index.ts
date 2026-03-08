@@ -8,6 +8,8 @@ const corsHeaders = {
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
+const FALLBACK_ICON_URL = "https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png";
+
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
 
