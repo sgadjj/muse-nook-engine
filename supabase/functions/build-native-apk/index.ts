@@ -234,7 +234,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, runId, message: "Build triggered" }),
+        JSON.stringify({ success: true, runId: latestRunId, message: "Build triggered" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
