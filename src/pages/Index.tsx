@@ -133,6 +133,15 @@ function hasPreviewToken(raw: string): boolean {
   }
 }
 
+function isUnsupportedBuildUrl(raw: string): boolean {
+  try {
+    const parsed = new URL(sanitizeAppUrl(raw).trim());
+    return parsed.hostname.endsWith("lovable.app");
+  } catch {
+    return false;
+  }
+}
+
 const Index = () => {
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
