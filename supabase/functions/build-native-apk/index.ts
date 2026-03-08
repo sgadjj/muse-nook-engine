@@ -170,7 +170,7 @@ serve(async (req) => {
         );
       }
 
-      const safePackageId = packageId || `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
+      const safePackageId = sanitizePackageId(packageId, appName);
 
       console.log("Using GITHUB_REPO (configured):", githubRepo);
       console.log("Using GITHUB_REPO (resolved):", resolvedRepo);
