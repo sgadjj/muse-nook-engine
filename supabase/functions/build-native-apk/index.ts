@@ -113,11 +113,14 @@ serve(async (req) => {
 
       const safePackageId = packageId || `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
 
+      console.log("Using GITHUB_REPO:", githubRepo);
+      console.log("Token length:", githubToken?.length);
       const repoResp = await fetch(`${GITHUB_API}/repos/${githubRepo}`, { headers: getGitHubHeaders(githubToken) });
       if (!repoResp.ok) {
         const errText = await repoResp.text();
+        console.error("Repo access failed:", repoResp.status, errText);
         return new Response(
-          JSON.stringify({ error: "Cannot access GitHub repo", details: errText }),
+          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: githubRepo }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
