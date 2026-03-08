@@ -8,6 +8,8 @@ const corsHeaders = {
 
 const CLOUDAPK_URL = "https://pwabuilder-cloudapk.azurewebsites.net";
 
+const FALLBACK_ICON_URL = "https://www.gstatic.com/images/branding/product/2x/googleg_96dp.png";
+
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
 
@@ -115,14 +117,7 @@ serve(async (req) => {
     const startUrl = parsedUrl.pathname || "/";
 
     const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host);
-
-    if (!resolvedIconUrl) {
-      return new Response(
-        JSON.stringify({ error: "تعذر العثور على أيقونة PNG صالحة للموقع" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host) || FALLBACK_ICON_URL;
 
     const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
     const generatedManifestUrl = `${publicBaseUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
