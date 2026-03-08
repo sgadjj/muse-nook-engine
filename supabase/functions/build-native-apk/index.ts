@@ -148,7 +148,7 @@ serve(async (req) => {
         const errText = await repoResp.text();
         console.error("Repo access failed:", repoResp.status, errText);
         return new Response(
-          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: githubRepo }),
+          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: resolvedRepo, repoConfigured: githubRepo }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
