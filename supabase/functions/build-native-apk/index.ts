@@ -140,7 +140,8 @@ serve(async (req) => {
 
       const safePackageId = packageId || `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
 
-      console.log("Using GITHUB_REPO:", githubRepo);
+      console.log("Using GITHUB_REPO (configured):", githubRepo);
+      console.log("Using GITHUB_REPO (resolved):", resolvedRepo);
       console.log("Token length:", githubToken?.length);
       const repoResp = await fetch(`${GITHUB_API}/repos/${githubRepo}`, { headers: getGitHubHeaders(githubToken) });
       if (!repoResp.ok) {
