@@ -126,12 +126,13 @@ serve(async (req) => {
       );
     }
 
-    const parsedUrl = new URL(url);
+    const sanitizedUrl = sanitizeTargetUrl(url);
+    const parsedUrl = new URL(sanitizedUrl);
     const host = parsedUrl.origin;
     const startUrl = `${parsedUrl.pathname || "/"}${parsedUrl.search}${parsedUrl.hash}`;
 
     const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(url, host) || makeFallbackIconUrl(appName, appColor);
+    const resolvedIconUrl = iconUrl || await resolveBestIconUrl(sanitizedUrl, host) || makeFallbackIconUrl(appName, appColor);
 
     const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
     const generatedManifestUrl = `${publicBaseUrl}?mode=manifest&appName=${encodeURIComponent(appName)}&appColor=${encodeURIComponent(appColor)}&startUrl=${encodeURIComponent(startUrl)}&iconUrl=${encodeURIComponent(resolvedIconUrl)}`;
@@ -140,7 +141,7 @@ serve(async (req) => {
       appVersion: "1.0.0",
       appVersionCode: 1,
       backgroundColor: appColor,
-      display: "standalone",
+      display: "fullscreen",
       enableNotifications: false,
       enableSiteSettingsShortcut: true,
       fallbackType: "webview",
@@ -165,7 +166,7 @@ serve(async (req) => {
       startUrl,
       themeColor: appColor,
       webManifestUrl: generatedManifestUrl,
-      pwaUrl: url,
+      pwaUrl: sanitizedUrl,
     };
 
     const response = await fetch(`${CLOUDAPK_URL}/generateAppPackage`, {
