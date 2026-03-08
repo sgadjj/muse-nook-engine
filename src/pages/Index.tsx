@@ -354,6 +354,19 @@ const Index = () => {
                 معاينة التطبيق
               </button>
             </div>
+
+            {/* WebView APK alternative */}
+            <button
+              onClick={() => {
+                const webIntoAppUrl = `https://www.webintoapp.com/app-maker?url=${encodeURIComponent(normalizedUrl)}`;
+                window.open(webIntoAppUrl, '_blank');
+                toast.info("يفتح WebIntoApp - أداة مجانية تعطيك APK بدون شريط عنوان نهائياً");
+              }}
+              className="w-full py-3 rounded-xl bg-accent/60 border border-primary/20 text-accent-foreground font-semibold text-sm hover:bg-accent transition-all flex items-center justify-center gap-2"
+            >
+              <Smartphone className="w-4 h-4" />
+              APK بدون شريط عنوان (WebIntoApp)
+            </button>
           </div>
         )}
 

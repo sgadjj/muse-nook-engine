@@ -144,10 +144,11 @@ serve(async (req) => {
       appVersion: "1.0.0",
       appVersionCode: 1,
       backgroundColor: appColor,
-      display: "fullscreen",
+      display: "standalone",
       enableNotifications: false,
-      enableSiteSettingsShortcut: true,
+      enableSiteSettingsShortcut: false,
       fallbackType: "webview",
+      isChromeOSOnly: false,
       host,
       iconUrl: resolvedIconUrl,
       includeSourceCode: false,
@@ -155,6 +156,8 @@ serve(async (req) => {
       name: appName,
       navigationColor: appColor,
       navigationColorDark: appColor,
+      navigationDividerColor: appColor,
+      navigationDividerColorDark: appColor,
       orientation: "default",
       packageId: finalPackageId,
       signingMode: "new",
@@ -170,6 +173,9 @@ serve(async (req) => {
       themeColor: appColor,
       webManifestUrl: generatedManifestUrl,
       pwaUrl: sanitizedUrl,
+      additionalTrustedOrigins: [],
+      enableSiteSettingsShortcut: false,
+      shareTarget: {},
     };
 
     const response = await fetch(`${CLOUDAPK_URL}/generateAppPackage`, {
