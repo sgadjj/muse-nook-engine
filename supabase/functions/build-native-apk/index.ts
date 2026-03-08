@@ -38,6 +38,27 @@ async function resolveGitHubRepo(configuredRepo: string, token: string) {
   return { repo: `${userData.login}/${repo}`, inferred: true };
 }
 
+function sanitizePackageId(rawPackageId: string | undefined, appName: string) {
+  const fallback = `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
+
+  if (!rawPackageId || !rawPackageId.trim()) return fallback;
+
+  const cleaned = rawPackageId
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+
+  const segments = cleaned
+    .split(".")
+    .map((segment) => segment.replace(/^[^a-z]+/, "").replace(/[^a-z0-9_]/g, ""))
+    .filter(Boolean);
+
+  if (segments.length < 2) return fallback;
+  return segments.join(".");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
