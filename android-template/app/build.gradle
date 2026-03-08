@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'APP_PACKAGE_ID'
+    namespace 'com.webtoapp.generated'
     compileSdkVersion 34
 
     defaultConfig {
