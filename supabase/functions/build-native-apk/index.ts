@@ -157,7 +157,7 @@ serve(async (req) => {
       const defaultBranch = repoData.default_branch || "main";
 
       const dispatchResp = await fetch(
-        `${GITHUB_API}/repos/${githubRepo}/actions/workflows/build-apk.yml/dispatches`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
         {
           method: "POST",
           headers: { ...getGitHubHeaders(githubToken), "Content-Type": "application/json" },
