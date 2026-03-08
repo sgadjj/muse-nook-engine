@@ -1,0 +1,113 @@
+name: Build Native WebView APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Target website URL'
+        required: true
+        type: string
+      app_name:
+        description: 'App display name'
+        required: true
+        default: 'MyApp'
+        type: string
+      app_color:
+        description: 'Theme color hex (e.g. #22c55e)'
+        required: true
+        default: '#22c55e'
+        type: string
+      package_id:
+        description: 'Android package ID'
+        required: true
+        default: 'com.webtoapp.app'
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Configure app parameters
+        working-directory: android-template
+        run: |
+          APP_URL="${{ inputs.app_url }}"
+          APP_NAME="${{ inputs.app_name }}"
+          APP_COLOR="${{ inputs.app_color }}"
+          PACKAGE_ID="${{ inputs.package_id }}"
+
+          echo "Building APK for: $APP_URL"
+          echo "App Name: $APP_NAME"
+          echo "Color: $APP_COLOR"
+          echo "Package: $PACKAGE_ID"
+
+          # Replace placeholders in all source files
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_URL|${APP_URL}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_NAME|${APP_NAME}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_COLOR|${APP_COLOR}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID}|g" {} +
+
+      - name: Generate app icons
+        working-directory: android-template
+        run: |
+          sudo apt-get install -y imagemagick > /dev/null 2>&1
+          COLOR="${{ inputs.app_color }}"
+          NAME="${{ inputs.app_name }}"
+          LETTER=$(echo "$NAME" | head -c 1 | tr '[:lower:]' '[:upper:]')
+
+          declare -A SIZES=(
+            ["mdpi"]="48"
+            ["hdpi"]="72"
+            ["xhdpi"]="96"
+            ["xxhdpi"]="144"
+            ["xxxhdpi"]="192"
+          )
+
+          for density in "${!SIZES[@]}"; do
+            SIZE=${SIZES[$density]}
+            DIR="app/src/main/res/mipmap-${density}"
+            mkdir -p "$DIR"
+            convert -size "${SIZE}x${SIZE}" xc:"${COLOR}" \
+              -gravity center -pointsize $((SIZE * 45 / 100)) \
+              -fill white -font DejaVu-Sans-Bold -annotate 0 "${LETTER}" \
+              "${DIR}/ic_launcher.png"
+          done
+
+      - name: Create Gradle wrapper
+        working-directory: android-template
+        run: |
+          gradle wrapper --gradle-version 8.5
+
+      - name: Build debug APK
+        working-directory: android-template
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: |
+          APP_NAME="${{ inputs.app_name }}"
+          SAFE_NAME=$(echo "$APP_NAME" | tr ' ' '-' | tr -cd '[:alnum:]-')
+          APK_PATH=$(find android-template/app/build/outputs/apk/debug -name "*.apk" | head -1)
+          cp "$APK_PATH" "android-template/${SAFE_NAME}.apk"
+          echo "APK_FILE=${SAFE_NAME}.apk" >> $GITHUB_ENV
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-apk
+          path: android-template/${{ env.APK_FILE }}
+          retention-days: 7
