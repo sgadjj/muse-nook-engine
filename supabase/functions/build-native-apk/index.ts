@@ -15,6 +15,29 @@ function getGitHubHeaders(token: string) {
   };
 }
 
+async function resolveGitHubRepo(configuredRepo: string, token: string) {
+  const repo = configuredRepo.trim();
+  if (repo.includes("/")) {
+    return { repo, inferred: false };
+  }
+
+  const userResp = await fetch(`${GITHUB_API}/user`, {
+    headers: getGitHubHeaders(token),
+  });
+
+  if (!userResp.ok) {
+    const errText = await userResp.text();
+    throw new Error(`Failed to resolve repo owner from token: ${errText}`);
+  }
+
+  const userData = await userResp.json();
+  if (!userData?.login) {
+    throw new Error("Failed to resolve repo owner from token: missing login");
+  }
+
+  return { repo: `${userData.login}/${repo}`, inferred: true };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
