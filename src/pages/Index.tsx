@@ -174,11 +174,6 @@ const Index = () => {
   };
 
   const handleGenerateApk = async () => {
-    if (isUnsupportedBuildUrl(url)) {
-      toast.error("روابط lovable.app هي روابط معاينة/استضافة مؤقتة وستُظهر شريط المتصفح. استخدم رابط نطاقك الحقيقي للحصول على تطبيق بدون شريط رابط.");
-      return;
-    }
-
     if (hasPreviewToken(url)) {
       toast.error("احذف __lovable_token من الرابط أو استخدم رابط منشور نهائي للتطبيق.");
       return;
