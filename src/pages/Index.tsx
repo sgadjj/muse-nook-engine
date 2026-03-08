@@ -141,9 +141,8 @@ const Index = () => {
       const a = document.createElement("a");
       a.href = downloadUrl;
       a.download = filename;
+      a.style.display = "none";
       document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
