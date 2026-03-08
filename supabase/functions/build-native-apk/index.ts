@@ -182,7 +182,7 @@ serve(async (req) => {
       for (const status of ["queued", ""]) {
         const q = status ? `&status=${status}` : "";
         const runsResp = await fetch(
-          `${GITHUB_API}/repos/${githubRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
           { headers: getGitHubHeaders(githubToken) }
         );
         if (runsResp.ok) {
