@@ -143,7 +143,7 @@ serve(async (req) => {
       console.log("Using GITHUB_REPO (configured):", githubRepo);
       console.log("Using GITHUB_REPO (resolved):", resolvedRepo);
       console.log("Token length:", githubToken?.length);
-      const repoResp = await fetch(`${GITHUB_API}/repos/${githubRepo}`, { headers: getGitHubHeaders(githubToken) });
+      const repoResp = await fetch(`${GITHUB_API}/repos/${resolvedRepo}`, { headers: getGitHubHeaders(githubToken) });
       if (!repoResp.ok) {
         const errText = await repoResp.text();
         console.error("Repo access failed:", repoResp.status, errText);
