@@ -15,6 +15,29 @@ function getGitHubHeaders(token: string) {
   };
 }
 
+async function resolveGitHubRepo(configuredRepo: string, token: string) {
+  const repo = configuredRepo.trim();
+  if (repo.includes("/")) {
+    return { repo, inferred: false };
+  }
+
+  const userResp = await fetch(`${GITHUB_API}/user`, {
+    headers: getGitHubHeaders(token),
+  });
+
+  if (!userResp.ok) {
+    const errText = await userResp.text();
+    throw new Error(`Failed to resolve repo owner from token: ${errText}`);
+  }
+
+  const userData = await userResp.json();
+  if (!userData?.login) {
+    throw new Error("Failed to resolve repo owner from token: missing login");
+  }
+
+  return { repo: `${userData.login}/${repo}`, inferred: true };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -33,6 +56,11 @@ serve(async (req) => {
   const url = new URL(req.url);
 
   try {
+    const { repo: resolvedRepo, inferred } = await resolveGitHubRepo(githubRepo, githubToken);
+    if (inferred) {
+      console.log(`Resolved GITHUB_REPO automatically: ${resolvedRepo}`);
+    }
+
     if (req.method === "GET") {
       const runId = url.searchParams.get("runId");
       if (!runId) {
@@ -113,14 +141,15 @@ serve(async (req) => {
 
       const safePackageId = packageId || `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
 
-      console.log("Using GITHUB_REPO:", githubRepo);
+      console.log("Using GITHUB_REPO (configured):", githubRepo);
+      console.log("Using GITHUB_REPO (resolved):", resolvedRepo);
       console.log("Token length:", githubToken?.length);
-      const repoResp = await fetch(`${GITHUB_API}/repos/${githubRepo}`, { headers: getGitHubHeaders(githubToken) });
+      const repoResp = await fetch(`${GITHUB_API}/repos/${resolvedRepo}`, { headers: getGitHubHeaders(githubToken) });
       if (!repoResp.ok) {
         const errText = await repoResp.text();
         console.error("Repo access failed:", repoResp.status, errText);
         return new Response(
-          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: githubRepo }),
+          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: resolvedRepo, repoConfigured: githubRepo }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -129,7 +158,7 @@ serve(async (req) => {
       const defaultBranch = repoData.default_branch || "main";
 
       const dispatchResp = await fetch(
-        `${GITHUB_API}/repos/${githubRepo}/actions/workflows/build-apk.yml/dispatches`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
         {
           method: "POST",
           headers: { ...getGitHubHeaders(githubToken), "Content-Type": "application/json" },
@@ -154,7 +183,7 @@ serve(async (req) => {
       for (const status of ["queued", ""]) {
         const q = status ? `&status=${status}` : "";
         const runsResp = await fetch(
-          `${GITHUB_API}/repos/${githubRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
           { headers: getGitHubHeaders(githubToken) }
         );
         if (runsResp.ok) {
