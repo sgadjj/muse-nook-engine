@@ -20,18 +20,27 @@ import {
 
 
 function toBrandName(raw: string): string {
-  const words = raw
+  const cleaned = raw
+    .replace(/[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+    .trim();
 
+  const words = cleaned.split(/\s+/).filter(Boolean);
   const compact = words
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join("");
+    .join("")
+    .replace(/[^\p{L}\p{N}]/gu, "");
 
   return compact.slice(0, 14) || "MyApp";
+}
+
+function isNoisyLabel(label: string): boolean {
+  if (!label) return true;
+  const digits = (label.match(/\d/g) || []).length;
+  const digitRatio = digits / label.length;
+  const looksUuid = /^[a-f0-9-]{16,}$/i.test(label);
+  return digitRatio > 0.35 || looksUuid || label.length > 24;
 }
 
 function extractAppName(url: string): string {
@@ -43,12 +52,12 @@ function extractAppName(url: string): string {
 
     if (host.endsWith("lovable.app") && parts.length >= 3) {
       const subdomain = parts[0].replace(/^id-preview--/i, "").replace(/--/g, "-");
-      return toBrandName(subdomain);
+      if (!isNoisyLabel(subdomain)) return toBrandName(subdomain);
     }
 
     const commonSecondLevel = new Set(["co", "com", "net", "org", "gov", "edu", "ac"]);
-    const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop"]);
-    const platformDomains = new Set(["vercel.app", "netlify.app", "github.io"]);
+    const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop", "lovable", "preview", "id"]);
+    const platformDomains = new Set(["vercel.app", "netlify.app", "github.io", "lovable.app"]);
 
     const domainTail = parts.length >= 2 ? `${parts[parts.length - 2]}.${parts[parts.length - 1]}` : "";
 
@@ -65,7 +74,7 @@ function extractAppName(url: string): string {
     }
 
     const picked = [baseLabel, ...parts].find(
-      (label) => !genericLabels.has(label) && /[\p{L}\p{N}]/u.test(label)
+      (label) => !genericLabels.has(label) && !isNoisyLabel(label) && /[\p{L}\p{N}]/u.test(label)
     ) || baseLabel;
 
     return toBrandName(picked);
