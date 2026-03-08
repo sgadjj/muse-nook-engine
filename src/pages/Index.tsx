@@ -447,6 +447,40 @@ const Index = () => {
               )}
             </button>
 
+            {/* Native WebView APK - GitHub Actions */}
+            <button
+              onClick={handleNativeBuild}
+              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
+              className="w-full py-4 rounded-2xl bg-foreground text-background font-bold text-base shadow-lg hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
+            >
+              {nativeBuildStatus === "triggering" ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  جاري بدء البناء...
+                </>
+              ) : nativeBuildStatus === "building" ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  جاري البناء... (٣-٥ دقائق)
+                </>
+              ) : nativeBuildStatus === "downloading" ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  جاري التحميل...
+                </>
+              ) : nativeBuildStatus === "done" ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  تم التحميل! ✅
+                </>
+              ) : (
+                <>
+                  <Zap className="w-5 h-5" />
+                  APK أصلي (بدون شريط عنوان)
+                </>
+              )}
+            </button>
+
             {/* Secondary row */}
             <div className="flex gap-3">
               <button
@@ -464,19 +498,6 @@ const Index = () => {
                 معاينة التطبيق
               </button>
             </div>
-
-            {/* WebView APK alternative */}
-            <button
-              onClick={() => {
-                const webIntoAppUrl = `https://www.webintoapp.com/app-maker?url=${encodeURIComponent(normalizedUrl)}`;
-                window.open(webIntoAppUrl, '_blank');
-                toast.info("يفتح WebIntoApp - أداة مجانية تعطيك APK بدون شريط عنوان نهائياً");
-              }}
-              className="w-full py-3 rounded-xl bg-accent/60 border border-primary/20 text-accent-foreground font-semibold text-sm hover:bg-accent transition-all flex items-center justify-center gap-2"
-            >
-              <Smartphone className="w-4 h-4" />
-              APK بدون شريط عنوان (WebIntoApp)
-            </button>
           </div>
         )}
 
