@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   FileDown,
   Eye,
-} from "lucide-react";
+  Zap,
 import { toast } from "sonner";
 import {
   generateManifest,
