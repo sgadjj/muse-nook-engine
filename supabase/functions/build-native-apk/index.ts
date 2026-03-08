@@ -220,7 +220,7 @@ serve(async (req) => {
 
       await new Promise(r => setTimeout(r, 3000));
 
-      let runId = null;
+      let latestRunId = null;
       for (const status of ["queued", ""]) {
         const q = status ? `&status=${status}` : "";
         const runsResp = await fetch(
@@ -229,7 +229,7 @@ serve(async (req) => {
         );
         if (runsResp.ok) {
           const runsData = await runsResp.json();
-          if (runsData.workflow_runs?.length > 0) { runId = runsData.workflow_runs[0].id; break; }
+          if (runsData.workflow_runs?.length > 0) { latestRunId = runsData.workflow_runs[0].id; break; }
         }
       }
 
