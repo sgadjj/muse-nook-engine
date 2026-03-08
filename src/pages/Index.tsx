@@ -164,6 +164,11 @@ const Index = () => {
   };
 
   const handleGenerateApk = async () => {
+    if (hasPreviewToken(url)) {
+      toast.error("احذف __lovable_token من الرابط أو استخدم رابط منشور نهائي للتطبيق.");
+      return;
+    }
+
     setIsGeneratingApk(true);
     toast.info("جاري توليد التطبيق... قد يستغرق دقيقة");
     try {
