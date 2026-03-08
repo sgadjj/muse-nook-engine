@@ -56,7 +56,11 @@ serve(async (req) => {
   const url = new URL(req.url);
 
   try {
-    if (req.method === "GET") {
+    const { repo: resolvedRepo, inferred } = await resolveGitHubRepo(githubRepo, githubToken);
+    if (inferred) {
+      console.log(`Resolved GITHUB_REPO automatically: ${resolvedRepo}`);
+    }
+
       const runId = url.searchParams.get("runId");
       if (!runId) {
         return new Response(
