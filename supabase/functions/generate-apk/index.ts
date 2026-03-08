@@ -18,6 +18,12 @@ function makeFallbackIconUrl(appName: string, appColor: string): string {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(appName || "App")}&size=512&format=png&rounded=true&bold=true&background=${bg}&color=ffffff`;
 }
 
+function sanitizeTargetUrl(rawUrl: string): string {
+  const parsed = new URL((rawUrl || "").trim());
+  parsed.searchParams.delete("__lovable_token");
+  return parsed.toString();
+}
+
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
   const candidates: string[] = [];
 
