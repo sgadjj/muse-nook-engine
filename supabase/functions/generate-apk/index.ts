@@ -24,44 +24,40 @@ function sanitizeTargetUrl(rawUrl: string): string {
   return parsed.toString();
 }
 
+// Fast icon check with 3s timeout per URL
+async function quickFetchIcon(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const r = await fetch(url, { method: "HEAD", signal: controller.signal });
+    clearTimeout(timeout);
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (r.ok && ct.startsWith("image/") && !ct.includes("x-icon")) return url;
+  } catch { /* skip */ }
+  return null;
+}
 
+// Resolve icon with max 5s total timeout
 async function resolveBestIconUrl(siteUrl: string, host: string): Promise<string | undefined> {
-  const candidates: string[] = [];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const pageResp = await fetch(siteUrl, { method: "GET" });
-    if (pageResp.ok) {
-      const html = await pageResp.text();
-      const iconMatches = [...html.matchAll(/<link[^>]+rel=["'][^"']*icon[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/gi)];
-      for (const m of iconMatches) {
-        try {
-          candidates.push(new URL(m[1], host).toString());
-        } catch {
-          // ignore invalid icon URL
-        }
-      }
-    }
+    // Try common paths in parallel (fastest approach)
+    const candidates = [
+      `${host}/apple-touch-icon.png`,
+      `${host}/favicon.png`,
+      `${host}/icon-512x512.png`,
+      `https://logo.clearbit.com/${new URL(siteUrl).hostname}`,
+    ];
+
+    const results = await Promise.all(candidates.map(quickFetchIcon));
+    clearTimeout(timeout);
+    return results.find(Boolean) || undefined;
   } catch {
-    // continue to fallback candidates
+    clearTimeout(timeout);
+    return undefined;
   }
-
-  candidates.push(`${host}/apple-touch-icon.png`);
-  candidates.push(`${host}/favicon.png`);
-  candidates.push(`https://logo.clearbit.com/${new URL(siteUrl).hostname}`);
-
-  for (const candidate of [...new Set(candidates)]) {
-    try {
-      const r = await fetch(candidate, { method: "GET" });
-      const ct = (r.headers.get("content-type") || "").toLowerCase();
-      if (r.ok && ct.startsWith("image/") && !ct.includes("x-icon")) {
-        return candidate;
-      }
-    } catch {
-      // try next
-    }
-  }
-
-  return undefined;
 }
 
 function makeManifestPayload(appName: string, appColor: string, startUrl: string, iconUrl: string) {
@@ -74,18 +70,8 @@ function makeManifestPayload(appName: string, appColor: string, startUrl: string
     background_color: appColor,
     theme_color: appColor,
     icons: [
-      {
-        src: iconUrl,
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any maskable",
-      },
-      {
-        src: iconUrl,
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any maskable",
-      },
+      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
     ],
   };
 }
@@ -98,7 +84,7 @@ serve(async (req) => {
   try {
     const reqUrl = new URL(req.url);
 
-    // Public manifest endpoint used by CloudAPK (prevents 404 manifest errors)
+    // Public manifest endpoint
     if (req.method === "GET" && reqUrl.searchParams.get("mode") === "manifest") {
       const appName = reqUrl.searchParams.get("appName") || "WebApp";
       const appColor = reqUrl.searchParams.get("appColor") || "#22c55e";
@@ -109,11 +95,7 @@ serve(async (req) => {
         JSON.stringify(makeManifestPayload(appName, appColor, startUrl, iconUrl), null, 2),
         {
           status: 200,
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/manifest+json",
-            "Cache-Control": "public, max-age=60",
-          },
+          headers: { ...corsHeaders, "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=60" },
         }
       );
     }
@@ -129,12 +111,11 @@ serve(async (req) => {
 
     const sanitizedUrl = sanitizeTargetUrl(url);
     const parsedUrl = new URL(sanitizedUrl);
-
-
     const host = parsedUrl.origin;
     const startUrl = `${parsedUrl.pathname || "/"}${parsedUrl.search}${parsedUrl.hash}`;
-
     const finalPackageId = packageId || `com.pwa.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
+
+    // Fast icon resolution (max 5s) or immediate fallback
     const resolvedIconUrl = iconUrl || await resolveBestIconUrl(sanitizedUrl, host) || makeFallbackIconUrl(appName, appColor);
 
     const publicBaseUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-apk`;
@@ -174,7 +155,6 @@ serve(async (req) => {
       webManifestUrl: generatedManifestUrl,
       pwaUrl: sanitizedUrl,
       additionalTrustedOrigins: [],
-      enableSiteSettingsShortcut: false,
       shareTarget: {},
     };
 
@@ -198,6 +178,7 @@ serve(async (req) => {
 
     const zipBlob = await response.blob();
 
+    // Extract APK from ZIP
     try {
       const zipReader = new ZipReader(new BlobReader(zipBlob));
       const entries = await zipReader.getEntries();
@@ -216,10 +197,9 @@ serve(async (req) => {
           },
         });
       }
-
       await zipReader.close();
     } catch {
-      // fallback to zip response below
+      // fallback to zip
     }
 
     const zipBuffer = await zipBlob.arrayBuffer();
