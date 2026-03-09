@@ -413,8 +413,8 @@ const Index = () => {
               <Slider
                 value={[previewScale]}
                 onValueChange={(val) => setPreviewScale(val[0])}
-                min={50}
-                max={150}
+                min={30}
+                max={200}
                 step={5}
                 className="w-48"
               />
