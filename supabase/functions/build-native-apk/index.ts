@@ -101,14 +101,42 @@ async function getRunStatusResponse(runId: string, resolvedRepo: string, githubT
       if (jobsResp.ok) {
         const jobsData = await jobsResp.json();
         const failedJobs = (jobsData.jobs || []).filter((job: any) => job.conclusion === "failure");
-        failureDetails = failedJobs.map((job: any) => ({
-          name: job.name,
-          conclusion: job.conclusion,
-          url: job.html_url,
-          failedSteps: (job.steps || [])
-            .filter((step: any) => step.conclusion === "failure")
-            .map((step: any) => step.name),
+
+        const enrichedFailedJobs = await Promise.all(failedJobs.map(async (job: any) => {
+          let logSnippet: string | null = null;
+
+          try {
+            const logsResp = await fetch(
+              `${GITHUB_API}/repos/${resolvedRepo}/actions/jobs/${job.id}/logs`,
+              { headers: getGitHubHeaders(githubToken) }
+            );
+
+            if (logsResp.ok) {
+              const rawText = await logsResp.text();
+              const cleaned = rawText
+                .split("\n")
+                .filter((line) => /(error|failed|exception|what went wrong|could not)/i.test(line))
+                .slice(-25)
+                .join("\n");
+              logSnippet = cleaned || rawText.slice(-2000);
+            }
+          } catch (err) {
+            console.error("Failed to fetch logs for job", job.id, err);
+          }
+
+          return {
+            id: job.id,
+            name: job.name,
+            conclusion: job.conclusion,
+            url: job.html_url,
+            failedSteps: (job.steps || [])
+              .filter((step: any) => step.conclusion === "failure")
+              .map((step: any) => step.name),
+            logSnippet,
+          };
         }));
+
+        failureDetails = enrichedFailedJobs;
       }
     } catch (err) {
       console.error("Failed to fetch job failure details", err);
