@@ -144,6 +144,7 @@ const Index = () => {
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewScale, setPreviewScale] = useState(100);
+
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
@@ -209,7 +210,7 @@ const Index = () => {
       const resp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor }),
+        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor, customIcon: customIcon || undefined }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || data.details || "فشل بدء البناء");
@@ -412,8 +413,8 @@ const Index = () => {
               <Slider
                 value={[previewScale]}
                 onValueChange={(val) => setPreviewScale(val[0])}
-                min={50}
-                max={150}
+                min={30}
+                max={200}
                 step={5}
                 className="w-48"
               />
@@ -441,13 +442,13 @@ const Index = () => {
                   {/* Content - scaled */}
                   <div className="w-full overflow-hidden" style={{ height: "calc(100% - 28px)" }}>
                     <iframe
-                      src={url}
-                      className="border-none origin-top-right"
+                      src={normalizedUrl}
+                      className="border-none"
                       style={{
-                        width: `${(100 / previewScale) * 100}%`,
-                        height: `${(100 / previewScale) * 100}%`,
+                        width: `${10000 / previewScale}%`,
+                        height: `${10000 / previewScale}%`,
                         transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top right",
+                        transformOrigin: "top left",
                       }}
                       title="معاينة التطبيق"
                       sandbox="allow-scripts allow-same-origin allow-popups"
