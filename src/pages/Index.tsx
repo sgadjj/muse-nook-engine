@@ -175,67 +175,6 @@ const Index = () => {
     toast.success("تم تحميل ملفات PWA! 📦");
   };
 
-  const handleGenerateApk = async () => {
-    if (hasPreviewToken(url)) {
-      toast.error("احذف __lovable_token من الرابط أو استخدم رابط منشور نهائي للتطبيق.");
-      return;
-    }
-
-    setIsGeneratingApk(true);
-    toast.info("جاري توليد التطبيق... قد يستغرق دقيقة");
-    try {
-      // Call edge function directly via fetch for proper binary handling
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/generate-apk`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": supabaseKey,
-          "Authorization": `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          url: config.url,
-          appName: config.appName,
-          appColor: config.appColor,
-        }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText);
-      }
-
-      const blob = await response.blob();
-      const safeName = config.appName.replace(/\s/g, "-") || "app";
-      const contentType = response.headers.get("content-type") || blob.type;
-      const disposition = response.headers.get("content-disposition") || "";
-      const headerName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-      const isApk = contentType.includes("android") || (headerName?.endsWith(".apk") ?? false);
-      const ext = isApk ? "apk" : "zip";
-      const filename = headerName || `${safeName}.${ext}`;
-
-      const downloadUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = filename;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1500);
-      toast.success("تم تنزيل التطبيق مباشرة ✅");
-    } catch (err: any) {
-      console.error("APK generation error:", err);
-      const message = typeof err?.message === "string" && err.message.length < 160
-        ? err.message
-        : "فشل توليد APK حالياً. جرّب رابط موقع آخر أو أعد المحاولة خلال دقيقة.";
-      toast.error(message);
-    } finally {
-      setIsGeneratingApk(false);
-    }
-  };
 
   useEffect(() => {
     return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
