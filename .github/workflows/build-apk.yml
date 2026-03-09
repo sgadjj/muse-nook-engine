@@ -26,7 +26,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -37,43 +37,56 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
-      - name: Setup Gradle 8.5
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.5
+          cache-read-only: false
 
       - name: Configure app parameters
         working-directory: android-template
         run: |
+          set -e
           APP_URL="${{ inputs.app_url }}"
           APP_NAME="${{ inputs.app_name }}"
           APP_COLOR="${{ inputs.app_color }}"
           PACKAGE_ID="${{ inputs.package_id }}"
-
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_URL|${APP_URL}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_NAME|${APP_NAME}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_COLOR|${APP_COLOR}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID}|g" {} +
+          
+          # Escape special characters for sed
+          APP_URL_ESC=$(printf '%s\n' "$APP_URL" | sed 's/[&/\]/\\&/g')
+          APP_NAME_ESC=$(printf '%s\n' "$APP_NAME" | sed 's/[&/\]/\\&/g')
+          APP_COLOR_ESC=$(printf '%s\n' "$APP_COLOR" | sed 's/[&/\]/\\&/g')
+          PACKAGE_ID_ESC=$(printf '%s\n' "$PACKAGE_ID" | sed 's/[&/\]/\\&/g')
+          
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_URL|${APP_URL_ESC}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_NAME|${APP_NAME_ESC}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_COLOR|${APP_COLOR_ESC}|g" {} +
+          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID_ESC}|g" {} +
 
       - name: Generate app icons
         working-directory: android-template
         run: |
-          sudo apt-get install -y imagemagick > /dev/null 2>&1
+          set -e
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
           COLOR="${{ inputs.app_color }}"
           NAME="${{ inputs.app_name }}"
           LETTER=$(echo "$NAME" | head -c 1 | tr '[:lower:]' '[:upper:]')
+          
+          # Fallback to 'A' if no valid letter
+          if [ -z "$LETTER" ] || ! echo "$LETTER" | grep -qE '^[A-Za-z0-9]$'; then
+            LETTER="A"
+          fi
 
-          declare -A SIZES=(
-            ["mdpi"]="48"
-            ["hdpi"]="72"
-            ["xhdpi"]="96"
-            ["xxhdpi"]="144"
-            ["xxxhdpi"]="192"
-          )
-
-          for density in "${!SIZES[@]}"; do
-            SIZE=${SIZES[$density]}
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            case $density in
+              mdpi) SIZE=48 ;;
+              hdpi) SIZE=72 ;;
+              xhdpi) SIZE=96 ;;
+              xxhdpi) SIZE=144 ;;
+              xxxhdpi) SIZE=192 ;;
+            esac
             DIR="app/src/main/res/mipmap-${density}"
             mkdir -p "$DIR"
             convert -size "${SIZE}x${SIZE}" xc:"${COLOR}" \
@@ -84,13 +97,21 @@ jobs:
 
       - name: Build debug APK
         working-directory: android-template
-        run: gradle assembleDebug --no-daemon --stacktrace
-
-      - name: Rename APK
         run: |
+          set -e
+          gradle assembleDebug --no-daemon --stacktrace --info
+
+      - name: Rename and prepare APK
+        run: |
+          set -e
           APP_NAME="${{ inputs.app_name }}"
-          SAFE_NAME=$(echo "$APP_NAME" | tr ' ' '-' | tr -cd '[:alnum:]-')
+          SAFE_NAME=$(echo "$APP_NAME" | tr ' ' '-' | tr -cd '[:alnum:]-' | head -c 50)
+          [ -z "$SAFE_NAME" ] && SAFE_NAME="app"
           APK_PATH=$(find android-template/app/build/outputs/apk/debug -name "*.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: APK not found!"
+            exit 1
+          fi
           cp "$APK_PATH" "android-template/${SAFE_NAME}.apk"
           echo "APK_FILE=${SAFE_NAME}.apk" >> $GITHUB_ENV
 
