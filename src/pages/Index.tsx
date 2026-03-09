@@ -377,30 +377,11 @@ const Index = () => {
         {/* Action buttons - appear when URL is valid */}
         {isReady && (
           <div className="space-y-3 animate-in slide-in-from-bottom-3 duration-400">
-            {/* Primary: APK */}
-            <button
-              onClick={handleGenerateApk}
-              disabled={isGeneratingApk}
-              className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
-            >
-              {isGeneratingApk ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  جاري توليد APK...
-                </>
-              ) : (
-                <>
-                  <Box className="w-5 h-5" />
-                  تحميل APK (أندرويد)
-                </>
-              )}
-            </button>
-
             {/* Native APK - بدون شريط عنوان */}
             <button
               onClick={handleNativeBuild}
               disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
-              className="w-full py-4 rounded-2xl bg-foreground text-background font-bold text-base shadow-lg hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
+              className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
             >
               {nativeBuildStatus === "triggering" ? (
                 <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء...</>
@@ -411,7 +392,7 @@ const Index = () => {
               ) : nativeBuildStatus === "done" ? (
                 <><CheckCircle2 className="w-5 h-5" /> تم التحميل! ✅</>
               ) : (
-                <><Zap className="w-5 h-5" /> APK أصلي (بدون شريط عنوان)</>
+                <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>
               )}
             </button>
 
