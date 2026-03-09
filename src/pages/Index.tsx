@@ -8,7 +8,12 @@ import {
   CheckCircle2,
   FileDown,
   Eye,
+  ZoomIn,
+  ZoomOut,
+  ImagePlus,
+  X,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import {
   downloadAllFiles,
