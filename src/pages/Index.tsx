@@ -11,9 +11,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  generateManifest,
-  generateServiceWorker,
-  generateIndexHtml,
   downloadAllFiles,
   type AppConfig,
 } from "@/lib/generateFiles";
