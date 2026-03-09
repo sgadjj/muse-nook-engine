@@ -413,7 +413,7 @@ const Index = () => {
               <Slider
                 value={[previewScale]}
                 onValueChange={(val) => setPreviewScale(val[0])}
-                min={30}
+                min={50}
                 max={200}
                 step={5}
                 className="w-48"
@@ -424,11 +424,17 @@ const Index = () => {
               </span>
             </div>
 
-            <div className="flex justify-center">
-              <div className="relative">
+            <div className="flex justify-center overflow-auto max-h-[75vh]">
+              <div
+                className="relative shrink-0"
+                style={{
+                  width: `${280 * (previewScale / 100)}px`,
+                  height: `${560 * (previewScale / 100)}px`,
+                }}
+              >
                 {/* Phone frame */}
                 <div
-                  className="w-[280px] h-[560px] rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
+                  className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
                 >
                   {/* Status bar */}
                   <div
@@ -439,17 +445,11 @@ const Index = () => {
                   </div>
                   {/* Notch */}
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
-                  {/* Content - scaled */}
+                  {/* Content */}
                   <div className="w-full overflow-hidden" style={{ height: "calc(100% - 28px)" }}>
                     <iframe
                       src={normalizedUrl}
-                      className="border-none"
-                      style={{
-                        width: `${10000 / previewScale}%`,
-                        height: `${10000 / previewScale}%`,
-                        transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top left",
-                      }}
+                      className="border-none w-full h-full"
                       title="معاينة التطبيق"
                       sandbox="allow-scripts allow-same-origin allow-popups"
                     />
