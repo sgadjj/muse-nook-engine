@@ -143,8 +143,26 @@ const Index = () => {
   
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewScale, setPreviewScale] = useState(100);
+  const [customIcon, setCustomIcon] = useState<string | null>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("يرجى اختيار ملف صورة");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCustomIcon(ev.target?.result as string);
+      toast.success("تم تحميل الأيقونة ✅");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const isValidUrl = useCallback((u: string) => {
     try {
