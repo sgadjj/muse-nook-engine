@@ -138,7 +138,7 @@ const Index = () => {
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
   const [appColor, setAppColor] = useState("#22c55e");
-  const [isGeneratingApk, setIsGeneratingApk] = useState(false);
+  
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
