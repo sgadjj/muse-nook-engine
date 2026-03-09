@@ -424,7 +424,7 @@ const Index = () => {
             </div>
 
             <div className="flex justify-center">
-              <div className="relative" style={{ transform: `scale(${previewScale / 100})`, transformOrigin: "top center", transition: "transform 0.2s ease" }}>
+              <div className="relative">
                 {/* Phone frame */}
                 <div
                   className="w-[280px] h-[560px] rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
@@ -438,14 +438,21 @@ const Index = () => {
                   </div>
                   {/* Notch */}
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
-                  {/* Content */}
-                  <iframe
-                    src={url}
-                    className="w-full border-none"
-                    style={{ height: "calc(100% - 28px)" }}
-                    title="معاينة التطبيق"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                  />
+                  {/* Content - scaled */}
+                  <div className="w-full overflow-hidden" style={{ height: "calc(100% - 28px)" }}>
+                    <iframe
+                      src={url}
+                      className="border-none origin-top-right"
+                      style={{
+                        width: `${(100 / previewScale) * 100}%`,
+                        height: `${(100 / previewScale) * 100}%`,
+                        transform: `scale(${previewScale / 100})`,
+                        transformOrigin: "top right",
+                      }}
+                      title="معاينة التطبيق"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
