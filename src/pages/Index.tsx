@@ -441,13 +441,13 @@ const Index = () => {
                   {/* Content - scaled */}
                   <div className="w-full overflow-hidden" style={{ height: "calc(100% - 28px)" }}>
                     <iframe
-                      src={url}
-                      className="border-none origin-top-right"
+                      src={normalizedUrl}
+                      className="border-none"
                       style={{
-                        width: `${(100 / previewScale) * 100}%`,
-                        height: `${(100 / previewScale) * 100}%`,
+                        width: `${10000 / previewScale}%`,
+                        height: `${10000 / previewScale}%`,
                         transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top right",
+                        transformOrigin: "top left",
                       }}
                       title="معاينة التطبيق"
                       sandbox="allow-scripts allow-same-origin allow-popups"
