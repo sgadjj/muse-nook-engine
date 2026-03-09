@@ -328,6 +328,36 @@ const Index = () => {
                   className="w-6 h-6 rounded border border-input cursor-pointer"
                 />
               </div>
+              {/* App Icon Upload */}
+              <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2 text-sm">
+                <span className="text-muted-foreground">الأيقونة:</span>
+                <input
+                  ref={iconInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleIconUpload}
+                  className="hidden"
+                />
+                {customIcon ? (
+                  <div className="flex items-center gap-1.5">
+                    <img src={customIcon} alt="أيقونة" className="w-6 h-6 rounded object-cover" />
+                    <button
+                      onClick={() => setCustomIcon(null)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => iconInputRef.current?.click()}
+                    className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold transition-colors"
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                    تحميل
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
