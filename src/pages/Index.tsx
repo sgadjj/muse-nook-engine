@@ -8,7 +8,12 @@ import {
   CheckCircle2,
   FileDown,
   Eye,
+  ZoomIn,
+  ZoomOut,
+  ImagePlus,
+  X,
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import {
   downloadAllFiles,
@@ -138,8 +143,26 @@ const Index = () => {
   
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewScale, setPreviewScale] = useState(100);
+  const [customIcon, setCustomIcon] = useState<string | null>(null);
+  const iconInputRef = useRef<HTMLInputElement>(null);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("يرجى اختيار ملف صورة");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCustomIcon(ev.target?.result as string);
+      toast.success("تم تحميل الأيقونة ✅");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const isValidUrl = useCallback((u: string) => {
     try {
@@ -305,6 +328,36 @@ const Index = () => {
                   className="w-6 h-6 rounded border border-input cursor-pointer"
                 />
               </div>
+              {/* App Icon Upload */}
+              <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2 text-sm">
+                <span className="text-muted-foreground">الأيقونة:</span>
+                <input
+                  ref={iconInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleIconUpload}
+                  className="hidden"
+                />
+                {customIcon ? (
+                  <div className="flex items-center gap-1.5">
+                    <img src={customIcon} alt="أيقونة" className="w-6 h-6 rounded object-cover" />
+                    <button
+                      onClick={() => setCustomIcon(null)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => iconInputRef.current?.click()}
+                    className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold transition-colors"
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                    تحميل
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -352,29 +405,48 @@ const Index = () => {
 
         {/* Mobile Preview */}
         {isReady && showPreview && (
-          <div className="flex justify-center animate-in fade-in duration-300">
-            <div className="relative">
-              {/* Phone frame */}
-              <div
-                className="w-[280px] h-[560px] rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
-              >
-                {/* Status bar */}
+          <div className="space-y-4 animate-in fade-in duration-300">
+            {/* Zoom Controls */}
+            <div className="flex items-center justify-center gap-3 bg-card rounded-xl border border-border p-3">
+              <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Slider
+                value={[previewScale]}
+                onValueChange={(val) => setPreviewScale(val[0])}
+                min={50}
+                max={150}
+                step={5}
+                className="w-48"
+              />
+              <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground font-mono min-w-[3ch] text-center">
+                {previewScale}%
+              </span>
+            </div>
+
+            <div className="flex justify-center">
+              <div className="relative" style={{ transform: `scale(${previewScale / 100})`, transformOrigin: "top center", transition: "transform 0.2s ease" }}>
+                {/* Phone frame */}
                 <div
-                  className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground"
-                  style={{ backgroundColor: appColor }}
+                  className="w-[280px] h-[560px] rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
                 >
-                  {appName}
+                  {/* Status bar */}
+                  <div
+                    className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground"
+                    style={{ backgroundColor: appColor }}
+                  >
+                    {appName}
+                  </div>
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
+                  {/* Content */}
+                  <iframe
+                    src={url}
+                    className="w-full border-none"
+                    style={{ height: "calc(100% - 28px)" }}
+                    title="معاينة التطبيق"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  />
                 </div>
-                {/* Notch */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
-                {/* Content */}
-                <iframe
-                  src={url}
-                  className="w-full border-none"
-                  style={{ height: "calc(100% - 28px)" }}
-                  title="معاينة التطبيق"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                />
               </div>
             </div>
           </div>
