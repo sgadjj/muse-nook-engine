@@ -209,7 +209,7 @@ const Index = () => {
       const resp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor }),
+        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor, customIcon: customIcon || undefined }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || data.details || "فشل بدء البناء");
