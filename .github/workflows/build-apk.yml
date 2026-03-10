@@ -70,30 +70,48 @@ jobs:
         run: |
           set -e
           sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
-          COLOR="${{ inputs.app_color }}"
-          NAME="${{ inputs.app_name }}"
-          LETTER=$(echo "$NAME" | head -c 1 | tr '[:lower:]' '[:upper:]')
           
-          # Fallback to 'A' if no valid letter
-          if [ -z "$LETTER" ] || ! echo "$LETTER" | grep -qE '^[A-Za-z0-9]$'; then
-            LETTER="A"
-          fi
+          # Check if custom icon was uploaded to the repo
+          if [ -f "custom_icon.png" ]; then
+            echo "✅ Using custom icon from custom_icon.png"
+            for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+              case $density in
+                mdpi) SIZE=48 ;;
+                hdpi) SIZE=72 ;;
+                xhdpi) SIZE=96 ;;
+                xxhdpi) SIZE=144 ;;
+                xxxhdpi) SIZE=192 ;;
+              esac
+              DIR="app/src/main/res/mipmap-${density}"
+              mkdir -p "$DIR"
+              convert "custom_icon.png" -resize "${SIZE}x${SIZE}!" "${DIR}/ic_launcher.png"
+            done
+          else
+            echo "ℹ️ No custom icon found, generating letter-based icon"
+            COLOR="${{ inputs.app_color }}"
+            NAME="${{ inputs.app_name }}"
+            LETTER=$(echo "$NAME" | head -c 1 | tr '[:lower:]' '[:upper:]')
+            
+            if [ -z "$LETTER" ] || ! echo "$LETTER" | grep -qE '^[A-Za-z0-9]$'; then
+              LETTER="A"
+            fi
 
-          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            case $density in
-              mdpi) SIZE=48 ;;
-              hdpi) SIZE=72 ;;
-              xhdpi) SIZE=96 ;;
-              xxhdpi) SIZE=144 ;;
-              xxxhdpi) SIZE=192 ;;
-            esac
-            DIR="app/src/main/res/mipmap-${density}"
-            mkdir -p "$DIR"
-            convert -size "${SIZE}x${SIZE}" xc:"${COLOR}" \
-              -gravity center -pointsize $((SIZE * 45 / 100)) \
-              -fill white -font DejaVu-Sans-Bold -annotate 0 "${LETTER}" \
-              "${DIR}/ic_launcher.png"
-          done
+            for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+              case $density in
+                mdpi) SIZE=48 ;;
+                hdpi) SIZE=72 ;;
+                xhdpi) SIZE=96 ;;
+                xxhdpi) SIZE=144 ;;
+                xxxhdpi) SIZE=192 ;;
+              esac
+              DIR="app/src/main/res/mipmap-${density}"
+              mkdir -p "$DIR"
+              convert -size "${SIZE}x${SIZE}" xc:"${COLOR}" \
+                -gravity center -pointsize $((SIZE * 45 / 100)) \
+                -fill white -font DejaVu-Sans-Bold -annotate 0 "${LETTER}" \
+                "${DIR}/ic_launcher.png"
+            done
+          fi
 
       - name: Build debug APK
         working-directory: android-template
