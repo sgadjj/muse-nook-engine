@@ -225,17 +225,18 @@ const Index = () => {
           });
           if (!sr.ok) return;
           const ct = sr.headers.get("content-type") || "";
-          if (ct.includes("zip") || ct.includes("octet")) {
+          if (ct.includes("zip") || ct.includes("octet") || ct.includes("android")) {
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setNativeBuildStatus("downloading");
             const blob = await sr.blob();
             const dl = URL.createObjectURL(blob);
             const a = document.createElement("a"); a.href = dl;
-            a.download = `${config.appName.replace(/\s/g, "-") || "app"}-native.zip`;
+            const ext = ct.includes("android") ? ".apk" : ".zip";
+            a.download = `${config.appName.replace(/\s/g, "-") || "app"}${ext}`;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(dl), 1500);
             setNativeBuildStatus("done");
-            toast.success("✅ تم! فك الضغط وثبّت APK");
+            toast.success("✅ تم تحميل التطبيق! ثبّته على جهازك");
             return;
           }
           const sd = await sr.json();

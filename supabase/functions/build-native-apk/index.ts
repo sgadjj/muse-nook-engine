@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { unzipSync } from "https://esm.sh/fflate@0.8.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,49 +18,62 @@ function getGitHubHeaders(token: string) {
 
 async function resolveGitHubRepo(configuredRepo: string, token: string) {
   const repo = configuredRepo.trim();
-  if (repo.includes("/")) {
-    return { repo, inferred: false };
-  }
+  if (repo.includes("/")) return { repo, inferred: false };
 
-  const userResp = await fetch(`${GITHUB_API}/user`, {
-    headers: getGitHubHeaders(token),
-  });
-
-  if (!userResp.ok) {
-    const errText = await userResp.text();
-    throw new Error(`Failed to resolve repo owner from token: ${errText}`);
-  }
-
+  const userResp = await fetch(`${GITHUB_API}/user`, { headers: getGitHubHeaders(token) });
+  if (!userResp.ok) throw new Error(`Failed to resolve repo owner: ${await userResp.text()}`);
   const userData = await userResp.json();
-  if (!userData?.login) {
-    throw new Error("Failed to resolve repo owner from token: missing login");
-  }
-
+  if (!userData?.login) throw new Error("Failed to resolve repo owner: missing login");
   return { repo: `${userData.login}/${repo}`, inferred: true };
 }
 
 function sanitizePackageId(rawPackageId: string | undefined, appName: string) {
   const fallback = `com.webtoapp.${appName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() || "app"}`;
-
   if (!rawPackageId || !rawPackageId.trim()) return fallback;
-
-  const cleaned = rawPackageId
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9.]/g, ".")
-    .replace(/\.+/g, ".")
-    .replace(/^\.|\.$/g, "");
-
-  const segments = cleaned
-    .split(".")
-    .map((segment) => segment.replace(/^[^a-z]+/, "").replace(/[^a-z0-9_]/g, ""))
-    .filter(Boolean);
-
+  const cleaned = rawPackageId.trim().toLowerCase().replace(/[^a-z0-9.]/g, ".").replace(/\.+/g, ".").replace(/^\.|\.$/g, "");
+  const segments = cleaned.split(".").map((s) => s.replace(/^[^a-z]+/, "").replace(/[^a-z0-9_]/g, "")).filter(Boolean);
   if (segments.length < 2) return fallback;
   return segments.join(".");
 }
 
-async function getRunStatusResponse(runId: string, resolvedRepo: string, githubToken: string) {
+// Upload custom icon to repo via GitHub Contents API
+async function uploadCustomIcon(base64Data: string, resolvedRepo: string, branch: string, token: string): Promise<boolean> {
+  const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
+  const filePath = "android-template/custom_icon.png";
+  const apiUrl = `${GITHUB_API}/repos/${resolvedRepo}/contents/${filePath}`;
+
+  // Check if file already exists (need SHA to update)
+  let sha: string | undefined;
+  try {
+    const existResp = await fetch(`${apiUrl}?ref=${branch}`, { headers: getGitHubHeaders(token) });
+    if (existResp.ok) {
+      const existData = await existResp.json();
+      sha = existData.sha;
+    }
+  } catch { /* file doesn't exist */ }
+
+  const body: any = {
+    message: "chore: add custom icon for APK build",
+    content: cleanBase64,
+    branch,
+  };
+  if (sha) body.sha = sha;
+
+  const resp = await fetch(apiUrl, {
+    method: "PUT",
+    headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    console.error("Failed to upload custom icon:", resp.status, await resp.text());
+    return false;
+  }
+  console.log("Custom icon uploaded successfully");
+  return true;
+}
+
+async function getRunStatusResponse(runId: string, resolvedRepo: string, githubToken: string, appName?: string) {
   const runResp = await fetch(
     `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}`,
     { headers: getGitHubHeaders(githubToken) }
@@ -67,14 +81,12 @@ async function getRunStatusResponse(runId: string, resolvedRepo: string, githubT
   if (!runResp.ok) {
     const errText = await runResp.text();
     console.error("Failed to check build status:", runResp.status, errText);
-
     if (runResp.status === 404) {
       return new Response(
         JSON.stringify({ status: "queued", conclusion: null, message: "Build started, waiting for status..." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
     return new Response(
       JSON.stringify({ error: "Failed to check build status", details: errText }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -91,72 +103,42 @@ async function getRunStatusResponse(runId: string, resolvedRepo: string, githubT
 
   if (runData.conclusion !== "success") {
     let failureDetails: any = null;
-
     try {
       const jobsResp = await fetch(
         `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/jobs?per_page=100`,
         { headers: getGitHubHeaders(githubToken) }
       );
-
       if (jobsResp.ok) {
         const jobsData = await jobsResp.json();
-        const failedJobs = (jobsData.jobs || []).filter((job: any) => job.conclusion === "failure");
-
-        const enrichedFailedJobs = await Promise.all(failedJobs.map(async (job: any) => {
+        const failedJobs = (jobsData.jobs || []).filter((j: any) => j.conclusion === "failure");
+        const enriched = await Promise.all(failedJobs.map(async (job: any) => {
           let logSnippet: string | null = null;
-
           try {
-            const logsResp = await fetch(
-              `${GITHUB_API}/repos/${resolvedRepo}/actions/jobs/${job.id}/logs`,
-              { headers: getGitHubHeaders(githubToken) }
-            );
-
-            if (logsResp.ok) {
-              const rawText = await logsResp.text();
-              const cleaned = rawText
-                .split("\n")
-                .filter((line) => /(error|failed|exception|what went wrong|could not)/i.test(line))
-                .slice(-25)
-                .join("\n");
-              logSnippet = cleaned || rawText.slice(-2000);
+            const lr = await fetch(`${GITHUB_API}/repos/${resolvedRepo}/actions/jobs/${job.id}/logs`, { headers: getGitHubHeaders(githubToken) });
+            if (lr.ok) {
+              const raw = await lr.text();
+              const cleaned = raw.split("\n").filter((l) => /(error|failed|exception|what went wrong|could not)/i.test(l)).slice(-25).join("\n");
+              logSnippet = cleaned || raw.slice(-2000);
             }
-          } catch (err) {
-            console.error("Failed to fetch logs for job", job.id, err);
-          }
-
-          return {
-            id: job.id,
-            name: job.name,
-            conclusion: job.conclusion,
-            url: job.html_url,
-            failedSteps: (job.steps || [])
-              .filter((step: any) => step.conclusion === "failure")
-              .map((step: any) => step.name),
-            logSnippet,
-          };
+          } catch {}
+          return { id: job.id, name: job.name, conclusion: job.conclusion, url: job.html_url, failedSteps: (job.steps || []).filter((s: any) => s.conclusion === "failure").map((s: any) => s.name), logSnippet };
         }));
-
-        failureDetails = enrichedFailedJobs;
+        failureDetails = enriched;
       }
-    } catch (err) {
-      console.error("Failed to fetch job failure details", err);
-    }
-
+    } catch {}
     return new Response(
       JSON.stringify({ status: "completed", conclusion: runData.conclusion, message: "Build failed", failureDetails }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
+  // Build succeeded - get artifact
   const artifactsResp = await fetch(
     `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/artifacts`,
     { headers: getGitHubHeaders(githubToken) }
   );
   if (!artifactsResp.ok) {
-    return new Response(
-      JSON.stringify({ error: "Failed to get artifacts" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to get artifacts" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   const artifactsData = await artifactsResp.json();
@@ -170,15 +152,34 @@ async function getRunStatusResponse(runId: string, resolvedRepo: string, githubT
 
   const downloadResp = await fetch(apkArtifact.archive_download_url, { headers: getGitHubHeaders(githubToken) });
   if (!downloadResp.ok) {
-    return new Response(
-      JSON.stringify({ error: "Failed to download artifact" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to download artifact" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   const buffer = await (await downloadResp.blob()).arrayBuffer();
+  const safeName = (appName || "app").replace(/[^a-zA-Z0-9-]/g, "-");
+
+  // Extract APK from the zip artifact and serve directly
+  try {
+    const uint8 = new Uint8Array(buffer);
+    const unzipped = unzipSync(uint8);
+    const apkFileName = Object.keys(unzipped).find((name) => name.endsWith(".apk"));
+    if (apkFileName) {
+      console.log("Extracted APK:", apkFileName, "size:", unzipped[apkFileName].length);
+      return new Response(unzipped[apkFileName], {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/vnd.android.package-archive",
+          "Content-Disposition": `attachment; filename="${safeName}.apk"`,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("Failed to extract APK from zip, sending zip instead:", e);
+  }
+
+  // Fallback: send the zip as-is
   return new Response(buffer, {
-    headers: { ...corsHeaders, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="native-apk.zip"` },
+    headers: { ...corsHeaders, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${safeName}.zip"` },
   });
 }
 
@@ -197,80 +198,81 @@ serve(async (req) => {
     );
   }
 
-  const url = new URL(req.url);
-
   try {
     const { repo: resolvedRepo, inferred } = await resolveGitHubRepo(githubRepo, githubToken);
-    if (inferred) {
-      console.log(`Resolved GITHUB_REPO automatically: ${resolvedRepo}`);
-    }
+    if (inferred) console.log(`Resolved GITHUB_REPO: ${resolvedRepo}`);
 
     if (req.method === "GET") {
+      const url = new URL(req.url);
       const runId = url.searchParams.get("runId");
       if (!runId) {
-        return new Response(
-          JSON.stringify({ error: "runId is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "runId is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-
       return await getRunStatusResponse(runId, resolvedRepo, githubToken);
     }
 
     if (req.method === "POST") {
       const payload = await req.json();
-      const { runId, appUrl, appName, appColor, packageId } = payload;
+      const { runId, appUrl, appName, appColor, packageId, customIcon } = payload;
 
       if (runId) {
-        return await getRunStatusResponse(String(runId), resolvedRepo, githubToken);
+        return await getRunStatusResponse(String(runId), resolvedRepo, githubToken, appName);
       }
 
       if (!appUrl || !appName) {
-        return new Response(
-          JSON.stringify({ error: "appUrl and appName are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "appUrl and appName are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const safePackageId = sanitizePackageId(packageId, appName);
 
-      console.log("Using GITHUB_REPO (configured):", githubRepo);
-      console.log("Using GITHUB_REPO (resolved):", resolvedRepo);
-      console.log("Token length:", githubToken?.length);
+      // Get repo info for default branch
       const repoResp = await fetch(`${GITHUB_API}/repos/${resolvedRepo}`, { headers: getGitHubHeaders(githubToken) });
       if (!repoResp.ok) {
         const errText = await repoResp.text();
         console.error("Repo access failed:", repoResp.status, errText);
         return new Response(
-          JSON.stringify({ error: "Cannot access GitHub repo", details: errText, repoUsed: resolvedRepo, repoConfigured: githubRepo }),
+          JSON.stringify({ error: "Cannot access GitHub repo", details: errText }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
       const repoData = await repoResp.json();
       const defaultBranch = repoData.default_branch || "main";
 
+      // Upload custom icon to repo if provided
+      let hasCustomIcon = false;
+      if (customIcon && typeof customIcon === "string" && customIcon.length > 100) {
+        console.log("Uploading custom icon to repo...");
+        hasCustomIcon = await uploadCustomIcon(customIcon, resolvedRepo, defaultBranch, githubToken);
+        if (hasCustomIcon) {
+          // Wait for GitHub to process the commit
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+
+      // Trigger workflow
       const dispatchResp = await fetch(
-          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
+        `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
         {
           method: "POST",
           headers: { ...getGitHubHeaders(githubToken), "Content-Type": "application/json" },
           body: JSON.stringify({
             ref: defaultBranch,
-            inputs: { app_url: appUrl, app_name: appName, app_color: appColor || "#22c55e", package_id: safePackageId },
+            inputs: {
+              app_url: appUrl,
+              app_name: appName,
+              app_color: appColor || "#22c55e",
+              package_id: safePackageId,
+            },
           }),
         }
       );
 
       if (!dispatchResp.ok) {
         const errText = await dispatchResp.text();
-        return new Response(
-          JSON.stringify({ error: "Failed to trigger build", details: errText }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Failed to trigger build", details: errText }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
 
       let latestRunId = null;
       for (const status of ["queued", ""]) {
@@ -281,12 +283,15 @@ serve(async (req) => {
         );
         if (runsResp.ok) {
           const runsData = await runsResp.json();
-          if (runsData.workflow_runs?.length > 0) { latestRunId = runsData.workflow_runs[0].id; break; }
+          if (runsData.workflow_runs?.length > 0) {
+            latestRunId = runsData.workflow_runs[0].id;
+            break;
+          }
         }
       }
 
       return new Response(
-        JSON.stringify({ success: true, runId: latestRunId, message: "Build triggered" }),
+        JSON.stringify({ success: true, runId: latestRunId, message: "Build triggered", hasCustomIcon }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
