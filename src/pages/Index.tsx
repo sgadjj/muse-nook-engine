@@ -427,15 +427,10 @@ const Index = () => {
             <div className="flex justify-center overflow-auto max-h-[75vh]">
               <div
                 className="relative shrink-0"
-                style={{
-                  width: `${280 * (previewScale / 100)}px`,
-                  height: `${560 * (previewScale / 100)}px`,
-                }}
+                style={{ width: "280px", height: "560px" }}
               >
-                {/* Phone frame */}
-                <div
-                  className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative"
-                >
+                {/* Phone frame - fixed size */}
+                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative">
                   {/* Status bar */}
                   <div
                     className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground"
@@ -445,13 +440,22 @@ const Index = () => {
                   </div>
                   {/* Notch */}
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
-                  {/* Content */}
-                  <div className="w-full overflow-hidden" style={{ height: "calc(100% - 28px)" }}>
+                  {/* Content - zoom scales website inside */}
+                  <div className="w-full overflow-hidden relative" style={{ height: "calc(100% - 28px)" }}>
                     <iframe
                       src={normalizedUrl}
-                      className="border-none w-full h-full"
                       title="معاينة التطبيق"
                       sandbox="allow-scripts allow-same-origin allow-popups"
+                      style={{
+                        border: "none",
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: `${10000 / previewScale}%`,
+                        height: `${10000 / previewScale}%`,
+                        transform: `scale(${previewScale / 100})`,
+                        transformOrigin: "top left",
+                      }}
                     />
                   </div>
                 </div>
