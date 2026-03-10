@@ -408,56 +408,84 @@ const Index = () => {
         {/* Mobile Preview */}
         {isReady && showPreview && (
           <div className="space-y-4 animate-in fade-in duration-300">
-            {/* Zoom Controls */}
-            <div className="flex items-center justify-center gap-3 bg-card rounded-xl border border-border p-3">
-              <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-              <Slider
-                value={[previewScale]}
-                onValueChange={(val) => setPreviewScale(val[0])}
-                min={50}
-                max={200}
-                step={5}
-                className="w-48"
-              />
-              <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-xs text-muted-foreground font-mono min-w-[3ch] text-center">
-                {previewScale}%
-              </span>
+            {/* Zoom Preset Buttons + Slider */}
+            <div className="flex flex-col items-center gap-2 bg-card rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                {[25, 50, 75, 100, 125, 150, 200].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setPreviewScale(val)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      previewScale === val
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    }`}
+                  >
+                    {val}%
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 w-full max-w-xs">
+                <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+                <Slider
+                  value={[previewScale]}
+                  onValueChange={(val) => setPreviewScale(val[0])}
+                  min={25}
+                  max={200}
+                  step={5}
+                  className="flex-1"
+                />
+                <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground font-mono min-w-[3ch] text-center">
+                  {previewScale}%
+                </span>
+              </div>
             </div>
 
-            <div className="flex justify-center overflow-auto max-h-[75vh]">
+            <div className="flex justify-center overflow-auto max-h-[80vh]">
               <div
                 className="relative shrink-0"
-                style={{ width: "280px", height: "560px" }}
+                style={{ width: "320px", height: "568px" }}
               >
                 {/* Phone frame - fixed size */}
-                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground/5 overflow-hidden shadow-xl relative">
+                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-black overflow-hidden shadow-xl relative">
                   {/* Status bar */}
                   <div
-                    className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground"
+                    className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground relative z-10"
                     style={{ backgroundColor: appColor }}
                   >
                     {appName}
                   </div>
                   {/* Notch */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl" />
-                  {/* Content - zoom scales website inside */}
-                  <div className="w-full overflow-hidden relative" style={{ height: "calc(100% - 28px)" }}>
-                    <iframe
-                      src={normalizedUrl}
-                      title="معاينة التطبيق"
-                      sandbox="allow-scripts allow-same-origin allow-popups"
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl z-20" />
+                  {/* Content area - website zooms inside this fixed container */}
+                  <div
+                    className="w-full overflow-hidden relative bg-white"
+                    style={{ height: "calc(100% - 28px)" }}
+                  >
+                    <div
                       style={{
-                        border: "none",
+                        width: `${32000 / previewScale}px`,
+                        height: `${54000 / previewScale}px`,
+                        transform: `scale(${previewScale / 100})`,
+                        transformOrigin: "top left",
                         position: "absolute",
                         top: 0,
                         left: 0,
-                        width: `${10000 / previewScale}%`,
-                        height: `${10000 / previewScale}%`,
-                        transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top left",
                       }}
-                    />
+                    >
+                      <iframe
+                        src={normalizedUrl}
+                        title="معاينة التطبيق"
+                        sandbox="allow-scripts allow-same-origin allow-popups"
+                        style={{
+                          border: "none",
+                          width: "100%",
+                          height: "100%",
+                          display: "block",
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
