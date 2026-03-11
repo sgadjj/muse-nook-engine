@@ -408,17 +408,35 @@ const Index = () => {
               disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
               className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
             >
-              {nativeBuildStatus === "triggering" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء...</>
-              ) : nativeBuildStatus === "building" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري البناء... (٣-٥ دقائق)</>
-              ) : nativeBuildStatus === "downloading" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري التحميل...</>
-              ) : nativeBuildStatus === "done" ? (
-                <><CheckCircle2 className="w-5 h-5" /> تم التحميل! ✅</>
-              ) : (
-                <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>
-              )}
+            {(() => {
+              const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+              const ESTIMATED_TIME = 180; // ~3 minutes average
+              const progress = Math.min(Math.round((buildElapsed / ESTIMATED_TIME) * 100), 95);
+              
+              if (nativeBuildStatus === "triggering") return (
+                <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء... <Timer className="w-4 h-4" /> {formatTime(buildElapsed)}</>
+              );
+              if (nativeBuildStatus === "building") return (
+                <div className="flex flex-col items-center gap-1 w-full">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>جاري البناء...</span>
+                    <Timer className="w-4 h-4" />
+                    <span className="font-mono">{formatTime(buildElapsed)}</span>
+                  </div>
+                  <div className="w-3/4 h-1.5 bg-primary-foreground/30 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-foreground rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              );
+              if (nativeBuildStatus === "downloading") return (
+                <><Download className="w-5 h-5 animate-bounce" /> جاري تحميل التطبيق...</>
+              );
+              if (nativeBuildStatus === "done") return (
+                <><CheckCircle2 className="w-5 h-5" /> ✅ تم التحميل بنجاح! ({formatTime(buildElapsed)})</>
+              );
+              return <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>;
+            })()}
             </button>
 
             <div className="flex gap-3">
