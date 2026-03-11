@@ -143,7 +143,7 @@ const Index = () => {
   
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [previewScale, setPreviewScale] = useState(100);
+  const [previewScale, setPreviewScale] = useState(50);
 
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
