@@ -440,7 +440,7 @@ const Index = () => {
                       : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
                 >
-                  {val}%
+                  {val}% {val === 25 ? "(سطح مكتب)" : "(جوال)"}
                 </button>
               ))}
               <ZoomIn className="w-4 h-4 text-muted-foreground" />
