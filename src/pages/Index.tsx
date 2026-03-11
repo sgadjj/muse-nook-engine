@@ -220,33 +220,52 @@ const Index = () => {
       toast.info("⚙️ جاري بناء تطبيق أصلي بدون شريط عنوان... ٣-٥ دقائق");
       pollTimerRef.current = setInterval(async () => {
         try {
+          // Status check only - returns JSON, never binary
           const sr = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}`, {
             headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
           });
           if (!sr.ok) return;
-          const ct = sr.headers.get("content-type") || "";
-          if (ct.includes("zip") || ct.includes("octet") || ct.includes("android")) {
+          const sd = await sr.json();
+          
+          if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
+            // Build done! Stop polling and start download
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setNativeBuildStatus("downloading");
-            const blob = await sr.blob();
-            const dl = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = dl;
-            const ext = ct.includes("android") ? ".apk" : ".zip";
-            a.download = `${config.appName.replace(/\s/g, "-") || "app"}${ext}`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(dl), 1500);
-            setNativeBuildStatus("done");
-            toast.success("✅ تم تحميل التطبيق! ثبّته على جهازك");
+            toast.info("⬇️ جاري تحميل التطبيق...");
+            
+            try {
+              const dlResp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}&download=true&appName=${encodeURIComponent(config.appName)}`, {
+                headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+              });
+              if (!dlResp.ok) throw new Error("Download failed");
+              const blob = await dlResp.blob();
+              const ct = dlResp.headers.get("content-type") || "";
+              const ext = ct.includes("android") ? ".apk" : ".zip";
+              const dlUrl = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = dlUrl;
+              a.download = `${config.appName.replace(/\s/g, "-") || "app"}${ext}`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
+              setNativeBuildStatus("done");
+              toast.success("✅ تم تحميل التطبيق! ثبّته على جهازك");
+            } catch (dlErr) {
+              console.error("Download error:", dlErr);
+              setNativeBuildStatus("error");
+              toast.error("فشل تحميل الملف. حاول مرة أخرى.");
+            }
             return;
           }
-          const sd = await sr.json();
+          
           if (sd.status === "completed" && sd.conclusion !== "success") {
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setNativeBuildStatus("error");
             toast.error("فشل بناء التطبيق.");
           }
-        } catch { /* continue */ }
-      }, 12000);
+        } catch { /* continue polling */ }
+      }, 10000);
     } catch (err: any) {
       console.error("Native build error:", err);
       setNativeBuildStatus("error");
@@ -421,7 +440,7 @@ const Index = () => {
                       : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
                 >
-                  {val}%
+                  {val}% {val === 25 ? "(سطح مكتب)" : "(جوال)"}
                 </button>
               ))}
               <ZoomIn className="w-4 h-4 text-muted-foreground" />
@@ -448,29 +467,26 @@ const Index = () => {
                     className="w-full overflow-hidden relative bg-white"
                     style={{ height: "calc(100% - 28px)" }}
                   >
-                    <div
+                    {/* 
+                      At 50%: iframe viewport = 320/0.5 = 640px (mobile/tablet view)
+                      At 25%: iframe viewport = 320/0.25 = 1280px (desktop view)
+                    */}
+                    <iframe
+                      src={normalizedUrl}
+                      title="معاينة التطبيق"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
                       style={{
-                        width: `${32000 / previewScale}px`,
-                        height: `${54000 / previewScale}px`,
-                        transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top left",
+                        border: "none",
+                        display: "block",
                         position: "absolute",
                         top: 0,
                         left: 0,
+                        width: `${100 / (previewScale / 100)}%`,
+                        height: `${100 / (previewScale / 100)}%`,
+                        transform: `scale(${previewScale / 100})`,
+                        transformOrigin: "top left",
                       }}
-                    >
-                      <iframe
-                        src={normalizedUrl}
-                        title="معاينة التطبيق"
-                        sandbox="allow-scripts allow-same-origin allow-popups"
-                        style={{
-                          border: "none",
-                          width: "100%",
-                          height: "100%",
-                          display: "block",
-                        }}
-                      />
-                    </div>
+                    />
                   </div>
                 </div>
               </div>
