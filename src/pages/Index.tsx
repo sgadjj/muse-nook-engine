@@ -502,8 +502,9 @@ const Index = () => {
                     style={{ height: "calc(100% - 28px)" }}
                   >
                     {/* 
-                      At 50%: iframe viewport = 320/0.5 = 640px (mobile/tablet view)
-                      At 25%: iframe viewport = 320/0.25 = 1280px (desktop view)
+                      Phone content area is ~308px wide (320 - 12px borders).
+                      At 50%: iframe = 616px wide scaled to 308px (mobile view)
+                      At 25%: iframe = 1232px wide scaled to 308px (desktop view)
                     */}
                     <iframe
                       src={normalizedUrl}
@@ -515,8 +516,8 @@ const Index = () => {
                         position: "absolute",
                         top: 0,
                         left: 0,
-                        width: `${100 / (previewScale / 100)}%`,
-                        height: `${100 / (previewScale / 100)}%`,
+                        width: `${Math.round(308 / (previewScale / 100))}px`,
+                        height: `${Math.round(540 / (previewScale / 100))}px`,
                         transform: `scale(${previewScale / 100})`,
                         transformOrigin: "top left",
                       }}
