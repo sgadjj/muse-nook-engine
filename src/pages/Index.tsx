@@ -151,6 +151,8 @@ const Index = () => {
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [buildStartTime, setBuildStartTime] = useState<number | null>(null);
+  const [buildElapsed, setBuildElapsed] = useState(0);
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
