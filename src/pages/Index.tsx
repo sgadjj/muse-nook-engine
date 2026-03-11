@@ -12,6 +12,8 @@ import {
   ZoomOut,
   ImagePlus,
   X,
+  Timer,
+  Download,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -149,6 +151,8 @@ const Index = () => {
   const iconInputRef = useRef<HTMLInputElement>(null);
   const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [buildStartTime, setBuildStartTime] = useState<number | null>(null);
+  const [buildElapsed, setBuildElapsed] = useState(0);
 
   const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -197,6 +201,16 @@ const Index = () => {
   };
 
 
+  // Timer for build elapsed
+  useEffect(() => {
+    if (buildStartTime && (nativeBuildStatus === "building" || nativeBuildStatus === "triggering")) {
+      const timer = setInterval(() => {
+        setBuildElapsed(Math.floor((Date.now() - buildStartTime) / 1000));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [buildStartTime, nativeBuildStatus]);
+
   useEffect(() => {
     return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
   }, []);
@@ -204,6 +218,8 @@ const Index = () => {
   const handleNativeBuild = async () => {
     if (hasPreviewToken(url)) { toast.error("استخدم رابط منشور نهائي."); return; }
     setNativeBuildStatus("triggering");
+    setBuildStartTime(Date.now());
+    setBuildElapsed(0);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     try {
@@ -392,17 +408,35 @@ const Index = () => {
               disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
               className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
             >
-              {nativeBuildStatus === "triggering" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء...</>
-              ) : nativeBuildStatus === "building" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري البناء... (٣-٥ دقائق)</>
-              ) : nativeBuildStatus === "downloading" ? (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري التحميل...</>
-              ) : nativeBuildStatus === "done" ? (
-                <><CheckCircle2 className="w-5 h-5" /> تم التحميل! ✅</>
-              ) : (
-                <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>
-              )}
+            {(() => {
+              const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+              const ESTIMATED_TIME = 180; // ~3 minutes average
+              const progress = Math.min(Math.round((buildElapsed / ESTIMATED_TIME) * 100), 95);
+              
+              if (nativeBuildStatus === "triggering") return (
+                <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء... <Timer className="w-4 h-4" /> {formatTime(buildElapsed)}</>
+              );
+              if (nativeBuildStatus === "building") return (
+                <div className="flex flex-col items-center gap-1 w-full">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>جاري البناء...</span>
+                    <Timer className="w-4 h-4" />
+                    <span className="font-mono">{formatTime(buildElapsed)}</span>
+                  </div>
+                  <div className="w-3/4 h-1.5 bg-primary-foreground/30 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-foreground rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              );
+              if (nativeBuildStatus === "downloading") return (
+                <><Download className="w-5 h-5 animate-bounce" /> جاري تحميل التطبيق...</>
+              );
+              if (nativeBuildStatus === "done") return (
+                <><CheckCircle2 className="w-5 h-5" /> ✅ تم التحميل بنجاح! ({formatTime(buildElapsed)})</>
+              );
+              return <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>;
+            })()}
             </button>
 
             <div className="flex gap-3">
@@ -468,8 +502,9 @@ const Index = () => {
                     style={{ height: "calc(100% - 28px)" }}
                   >
                     {/* 
-                      At 50%: iframe viewport = 320/0.5 = 640px (mobile/tablet view)
-                      At 25%: iframe viewport = 320/0.25 = 1280px (desktop view)
+                      Phone content area is ~308px wide (320 - 12px borders).
+                      At 50%: iframe = 616px wide scaled to 308px (mobile view)
+                      At 25%: iframe = 1232px wide scaled to 308px (desktop view)
                     */}
                     <iframe
                       src={normalizedUrl}
@@ -481,8 +516,8 @@ const Index = () => {
                         position: "absolute",
                         top: 0,
                         left: 0,
-                        width: `${100 / (previewScale / 100)}%`,
-                        height: `${100 / (previewScale / 100)}%`,
+                        width: `${Math.round(308 / (previewScale / 100))}px`,
+                        height: `${Math.round(540 / (previewScale / 100))}px`,
                         transform: `scale(${previewScale / 100})`,
                         transformOrigin: "top left",
                       }}
