@@ -13,7 +13,7 @@ import {
   ImagePlus,
   X,
 } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+
 import { toast } from "sonner";
 import {
   downloadAllFiles,
@@ -143,7 +143,7 @@ const Index = () => {
   
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [previewScale, setPreviewScale] = useState(100);
+  const [previewScale, setPreviewScale] = useState(50);
 
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
@@ -408,38 +408,23 @@ const Index = () => {
         {/* Mobile Preview */}
         {isReady && showPreview && (
           <div className="space-y-4 animate-in fade-in duration-300">
-            {/* Zoom Preset Buttons + Slider */}
-            <div className="flex flex-col items-center gap-2 bg-card rounded-xl border border-border p-3">
-              <div className="flex items-center gap-2 flex-wrap justify-center">
-                {[25, 50, 75, 100, 125, 150, 200].map((val) => (
-                  <button
-                    key={val}
-                    onClick={() => setPreviewScale(val)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      previewScale === val
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {val}%
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-3 w-full max-w-xs">
-                <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Slider
-                  value={[previewScale]}
-                  onValueChange={(val) => setPreviewScale(val[0])}
-                  min={25}
-                  max={200}
-                  step={5}
-                  className="flex-1"
-                />
-                <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="text-xs text-muted-foreground font-mono min-w-[3ch] text-center">
-                  {previewScale}%
-                </span>
-              </div>
+            {/* Zoom Preset Buttons */}
+            <div className="flex items-center justify-center gap-3 bg-card rounded-xl border border-border p-3">
+              <ZoomOut className="w-4 h-4 text-muted-foreground" />
+              {[25, 50].map((val) => (
+                <button
+                  key={val}
+                  onClick={() => setPreviewScale(val)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    previewScale === val
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  {val}%
+                </button>
+              ))}
+              <ZoomIn className="w-4 h-4 text-muted-foreground" />
             </div>
 
             <div className="flex justify-center overflow-auto max-h-[80vh]">
