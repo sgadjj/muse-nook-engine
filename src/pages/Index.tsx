@@ -467,29 +467,26 @@ const Index = () => {
                     className="w-full overflow-hidden relative bg-white"
                     style={{ height: "calc(100% - 28px)" }}
                   >
-                    <div
+                    {/* 
+                      At 50%: iframe viewport = 320/0.5 = 640px (mobile/tablet view)
+                      At 25%: iframe viewport = 320/0.25 = 1280px (desktop view)
+                    */}
+                    <iframe
+                      src={normalizedUrl}
+                      title="معاينة التطبيق"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
                       style={{
-                        width: `${32000 / previewScale}px`,
-                        height: `${54000 / previewScale}px`,
-                        transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top left",
+                        border: "none",
+                        display: "block",
                         position: "absolute",
                         top: 0,
                         left: 0,
+                        width: `${100 / (previewScale / 100)}%`,
+                        height: `${100 / (previewScale / 100)}%`,
+                        transform: `scale(${previewScale / 100})`,
+                        transformOrigin: "top left",
                       }}
-                    >
-                      <iframe
-                        src={normalizedUrl}
-                        title="معاينة التطبيق"
-                        sandbox="allow-scripts allow-same-origin allow-popups"
-                        style={{
-                          border: "none",
-                          width: "100%",
-                          height: "100%",
-                          display: "block",
-                        }}
-                      />
-                    </div>
+                    />
                   </div>
                 </div>
               </div>
