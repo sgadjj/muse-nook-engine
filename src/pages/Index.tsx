@@ -12,6 +12,8 @@ import {
   ZoomOut,
   ImagePlus,
   X,
+  Timer,
+  Download,
 } from "lucide-react";
 
 import { toast } from "sonner";
