@@ -218,6 +218,8 @@ const Index = () => {
   const handleNativeBuild = async () => {
     if (hasPreviewToken(url)) { toast.error("استخدم رابط منشور نهائي."); return; }
     setNativeBuildStatus("triggering");
+    setBuildStartTime(Date.now());
+    setBuildElapsed(0);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     try {
