@@ -201,6 +201,16 @@ const Index = () => {
   };
 
 
+  // Timer for build elapsed
+  useEffect(() => {
+    if (buildStartTime && (nativeBuildStatus === "building" || nativeBuildStatus === "triggering")) {
+      const timer = setInterval(() => {
+        setBuildElapsed(Math.floor((Date.now() - buildStartTime) / 1000));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [buildStartTime, nativeBuildStatus]);
+
   useEffect(() => {
     return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
   }, []);
