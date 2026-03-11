@@ -13,7 +13,7 @@ import {
   ImagePlus,
   X,
 } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
+
 import { toast } from "sonner";
 import {
   downloadAllFiles,
