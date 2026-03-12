@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ChangeEvent } from "react";
 import {
   Globe,
   Smartphone,
@@ -11,13 +11,22 @@ import {
   X,
   Timer,
   Download,
+  Eye,
 } from "lucide-react";
 
 import { toast } from "sonner";
-import {
-  downloadAllFiles,
-  type AppConfig,
-} from "@/lib/generateFiles";
+import { downloadAllFiles, type AppConfig } from "@/lib/generateFiles";
+
+type BuildStatus = "idle" | "triggering" | "building" | "downloading" | "done" | "error";
+
+type PersistedBuildSession = {
+  runId: string;
+  appName: string;
+  startedAt: number;
+  status: "triggering" | "building" | "downloading";
+};
+
+const BUILD_SESSION_STORAGE_KEY = "webtoapp-native-build-session-v1";
 
 function toBrandName(raw: string): string {
   const cleaned = raw
@@ -31,6 +40,7 @@ function toBrandName(raw: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join("")
     .replace(/[^\p{L}\p{N}]/gu, "");
+
   return compact.slice(0, 14) || "MyApp";
 }
 
@@ -48,23 +58,35 @@ function extractAppName(url: string): string {
     const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
     const parts = host.split(".").filter(Boolean);
     if (!parts.length) return "MyApp";
+
     if (host.endsWith("lovable.app") && parts.length >= 3) {
       const subdomain = parts[0].replace(/^id-preview--/i, "").replace(/--/g, "-");
       if (!isNoisyLabel(subdomain)) return toBrandName(subdomain);
     }
+
     const commonSecondLevel = new Set(["co", "com", "net", "org", "gov", "edu", "ac"]);
     const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop", "lovable", "preview", "id"]);
     const platformDomains = new Set(["vercel.app", "netlify.app", "github.io", "lovable.app"]);
+
     const domainTail = parts.length >= 2 ? `${parts[parts.length - 2]}.${parts[parts.length - 1]}` : "";
+
     let baseLabel = parts[Math.max(parts.length - 2, 0)] || parts[0];
+
     if (platformDomains.has(domainTail) && parts.length >= 3) {
       baseLabel = parts[0];
-    } else if (parts.length >= 3 && commonSecondLevel.has(parts[parts.length - 2]) && parts[parts.length - 1].length === 2) {
+    } else if (
+      parts.length >= 3 &&
+      commonSecondLevel.has(parts[parts.length - 2]) &&
+      parts[parts.length - 1].length === 2
+    ) {
       baseLabel = parts[parts.length - 3];
     }
-    const picked = [baseLabel, ...parts].find(
-      (label) => !genericLabels.has(label) && !isNoisyLabel(label) && /[\p{L}\p{N}]/u.test(label)
-    ) || baseLabel;
+
+    const picked =
+      [baseLabel, ...parts].find(
+        (label) => !genericLabels.has(label) && !isNoisyLabel(label) && /[\p{L}\p{N}]/u.test(label)
+      ) || baseLabel;
+
     return toBrandName(picked);
   } catch {
     return "MyApp";
@@ -96,7 +118,9 @@ function hslToHex(hsl: string): string {
   const f = (n: number) => {
     const k = (n + h * 12) % 12;
     const color = l - a2 * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, "0");
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
   };
   return `#${f(0)}${f(8)}${f(4)}`;
 }
@@ -126,28 +150,25 @@ const Index = () => {
   const [appColor, setAppColor] = useState("#22c55e");
 
   const [isReady, setIsReady] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
-  const [nativeBuildStatus, setNativeBuildStatus] = useState<string | null>(null);
+
+  const [nativeBuildStatus, setNativeBuildStatus] = useState<BuildStatus>("idle");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const downloadingRef = useRef(false);
+
   const [buildStartTime, setBuildStartTime] = useState<number | null>(null);
   const [buildElapsed, setBuildElapsed] = useState(0);
 
-  const handleIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("يرجى اختيار ملف صورة");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setCustomIcon(ev.target?.result as string);
-      toast.success("تم تحميل الأيقونة ✅");
-    };
-    reader.readAsDataURL(file);
-  };
+  const isBuildInProgress =
+    nativeBuildStatus === "triggering" ||
+    nativeBuildStatus === "building" ||
+    nativeBuildStatus === "downloading";
+
+  const normalizedUrl = sanitizeAppUrl(url);
 
   const isValidUrl = useCallback((u: string) => {
     try {
@@ -158,7 +179,133 @@ const Index = () => {
     }
   }, []);
 
-  const normalizedUrl = sanitizeAppUrl(url);
+  const persistBuildSession = useCallback((session: PersistedBuildSession) => {
+    localStorage.setItem(BUILD_SESSION_STORAGE_KEY, JSON.stringify(session));
+  }, []);
+
+  const clearBuildSession = useCallback(() => {
+    localStorage.removeItem(BUILD_SESSION_STORAGE_KEY);
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const downloadBuiltApk = useCallback(
+    async (runId: string, fileLabel: string) => {
+      if (downloadingRef.current) return;
+      downloadingRef.current = true;
+      setNativeBuildStatus("downloading");
+      persistBuildSession({
+        runId,
+        appName: fileLabel,
+        startedAt: buildStartTime ?? Date.now(),
+        status: "downloading",
+      });
+
+      const backendUrl = import.meta.env.VITE_SUPABASE_URL;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      try {
+        const dlResp = await fetch(
+          `${backendUrl}/functions/v1/build-native-apk?runId=${runId}&download=true&appName=${encodeURIComponent(fileLabel)}`,
+          {
+            headers: {
+              apikey: publishableKey,
+              Authorization: `Bearer ${publishableKey}`,
+            },
+          }
+        );
+
+        if (!dlResp.ok) throw new Error("Download failed");
+
+        const blob = await dlResp.blob();
+        const ct = dlResp.headers.get("content-type") || "";
+        const ext = ct.includes("android") ? ".apk" : ".zip";
+        const dlUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = dlUrl;
+        a.download = `${fileLabel.replace(/\s/g, "-") || "app"}${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 3000);
+
+        stopPolling();
+        clearBuildSession();
+        setNativeBuildStatus("done");
+        toast.success("✅ اكتمل البناء وتم تنزيل التطبيق مباشرة");
+      } catch (error) {
+        console.error("Download error:", error);
+        setNativeBuildStatus("error");
+        toast.error("اكتمل البناء لكن فشل التنزيل المباشر. جرّب مرة ثانية.");
+      } finally {
+        downloadingRef.current = false;
+      }
+    },
+    [buildStartTime, clearBuildSession, persistBuildSession, stopPolling]
+  );
+
+  const startPollingBuild = useCallback(
+    (runId: string, fileLabel: string, startedAt: number) => {
+      stopPolling();
+      setActiveRunId(runId);
+      setBuildStartTime(startedAt);
+
+      const backendUrl = import.meta.env.VITE_SUPABASE_URL;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const checkStatus = async () => {
+        try {
+          const sr = await fetch(`${backendUrl}/functions/v1/build-native-apk?runId=${runId}`, {
+            headers: {
+              apikey: publishableKey,
+              Authorization: `Bearer ${publishableKey}`,
+            },
+          });
+
+          if (!sr.ok) return;
+          const sd = await sr.json();
+
+          if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
+            await downloadBuiltApk(runId, fileLabel);
+            return;
+          }
+
+          if (sd.status === "completed" && sd.conclusion && sd.conclusion !== "success") {
+            stopPolling();
+            clearBuildSession();
+            setNativeBuildStatus("error");
+            toast.error("فشل بناء التطبيق.");
+            return;
+          }
+
+          if (["queued", "in_progress", "requested", "waiting", "pending"].includes(sd.status)) {
+            setNativeBuildStatus("building");
+            persistBuildSession({
+              runId,
+              appName: fileLabel,
+              startedAt,
+              status: "building",
+            });
+          }
+        } catch {
+          // keep polling silently
+        }
+      };
+
+      void checkStatus();
+      pollTimerRef.current = setInterval(() => {
+        void checkStatus();
+      }, 8000);
+    },
+    [clearBuildSession, downloadBuiltApk, persistBuildSession, stopPolling]
+  );
 
   useEffect(() => {
     if (isValidUrl(normalizedUrl)) {
@@ -169,109 +316,144 @@ const Index = () => {
       setIsReady(true);
     } else {
       setIsReady(false);
+      setShowPreview(false);
     }
   }, [normalizedUrl, isValidUrl]);
 
+  // Restore ongoing build if user closes page and returns
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BUILD_SESSION_STORAGE_KEY);
+      if (!raw) return;
+
+      const session = JSON.parse(raw) as PersistedBuildSession;
+      if (!session?.runId || !session?.startedAt) return;
+
+      setBuildStartTime(session.startedAt);
+      setBuildElapsed(Math.floor((Date.now() - session.startedAt) / 1000));
+      setNativeBuildStatus(session.status === "triggering" ? "building" : session.status);
+      setActiveRunId(session.runId);
+
+      toast.info("🔄 تم استئناف متابعة البناء تلقائيًا");
+      startPollingBuild(session.runId, session.appName || "app", session.startedAt);
+    } catch {
+      clearBuildSession();
+    }
+  }, [clearBuildSession, startPollingBuild]);
+
+  useEffect(() => {
+    if (buildStartTime && isBuildInProgress) {
+      const timer = setInterval(() => {
+        setBuildElapsed(Math.floor((Date.now() - buildStartTime) / 1000));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [buildStartTime, isBuildInProgress]);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
   const config: AppConfig = { url: normalizedUrl, appName, appColor };
+
+  const handleIconUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("يرجى اختيار ملف صورة");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setCustomIcon(ev.target?.result as string);
+      toast.success("تم تحميل الأيقونة ✅");
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleDownloadPWA = () => {
     downloadAllFiles(config);
     toast.success("تم تحميل ملفات PWA! 📦");
   };
 
-  // Timer for build elapsed
-  useEffect(() => {
-    if (buildStartTime && (nativeBuildStatus === "building" || nativeBuildStatus === "triggering")) {
-      const timer = setInterval(() => {
-        setBuildElapsed(Math.floor((Date.now() - buildStartTime) / 1000));
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [buildStartTime, nativeBuildStatus]);
-
-  useEffect(() => {
-    return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
-  }, []);
-
-  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-
   const handleNativeBuild = async () => {
-    if (hasPreviewToken(url)) { toast.error("استخدم رابط منشور نهائي."); return; }
-    setNativeBuildStatus("triggering");
-    setBuildStartTime(Date.now());
+    if (!isValidUrl(normalizedUrl)) {
+      toast.error("أدخل رابط صحيح أولاً");
+      return;
+    }
+
+    if (hasPreviewToken(url)) {
+      toast.error("استخدم رابط منشور نهائي.");
+      return;
+    }
+
+    downloadingRef.current = false;
+    const startedAt = Date.now();
+    setBuildStartTime(startedAt);
     setBuildElapsed(0);
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    setNativeBuildStatus("triggering");
+
+    const backendUrl = import.meta.env.VITE_SUPABASE_URL;
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
     try {
-      const resp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk`, {
+      const resp = await fetch(`${backendUrl}/functions/v1/build-native-apk`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ appUrl: config.url, appName: config.appName, appColor: config.appColor, customIcon: customIcon || undefined }),
+        headers: {
+          "Content-Type": "application/json",
+          apikey: publishableKey,
+          Authorization: `Bearer ${publishableKey}`,
+        },
+        body: JSON.stringify({
+          appUrl: config.url,
+          appName: config.appName,
+          appColor: config.appColor,
+          customIcon: customIcon || undefined,
+        }),
       });
+
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data.error || data.details || "فشل بدء البناء");
+
       const runId = data.runId;
       if (!runId) throw new Error("لم يتم العثور على معرّف البناء");
+
       setNativeBuildStatus("building");
-      toast.info("⚙️ جاري بناء التطبيق... ٣-٥ دقائق");
-      pollTimerRef.current = setInterval(async () => {
-        try {
-          const sr = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}`, {
-            headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-          });
-          if (!sr.ok) return;
-          const sd = await sr.json();
+      setActiveRunId(runId);
+      persistBuildSession({
+        runId,
+        appName: config.appName || "app",
+        startedAt,
+        status: "building",
+      });
 
-          if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            setNativeBuildStatus("downloading");
-            toast.info("⬇️ جاري تحميل التطبيق...");
-            try {
-              const dlResp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}&download=true&appName=${encodeURIComponent(config.appName)}`, {
-                headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-              });
-              if (!dlResp.ok) throw new Error("Download failed");
-              const blob = await dlResp.blob();
-              const ct = dlResp.headers.get("content-type") || "";
-              const ext = ct.includes("android") ? ".apk" : ".zip";
-              const dlUrl = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = dlUrl;
-              a.download = `${config.appName.replace(/\s/g, "-") || "app"}${ext}`;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
-              setNativeBuildStatus("done");
-              toast.success("✅ تم تحميل التطبيق بنجاح!");
-            } catch (dlErr) {
-              console.error("Download error:", dlErr);
-              setNativeBuildStatus("error");
-              toast.error("فشل تحميل الملف. حاول مرة أخرى.");
-            }
-            return;
-          }
-
-          if (sd.status === "completed" && sd.conclusion !== "success") {
-            if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-            setNativeBuildStatus("error");
-            toast.error("فشل بناء التطبيق.");
-          }
-        } catch { /* continue polling */ }
-      }, 10000);
+      toast.info("⚙️ بدء البناء بنجاح، سيتم التنزيل فور الاكتمال");
+      startPollingBuild(runId, config.appName || "app", startedAt);
     } catch (err: any) {
       console.error("Native build error:", err);
+      clearBuildSession();
       setNativeBuildStatus("error");
       toast.error(err?.message || "فشل بدء البناء");
     }
   };
 
-  const ESTIMATED_TIME = 180;
-  const progress = Math.min(Math.round((buildElapsed / ESTIMATED_TIME) * 100), 95);
+  const handleRetryDownload = async () => {
+    if (!activeRunId) return;
+    await downloadBuiltApk(activeRunId, appName || "app");
+  };
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+
+  const estimatedSeconds = 240;
+  const progress =
+    nativeBuildStatus === "done"
+      ? 100
+      : Math.min(Math.round((buildElapsed / estimatedSeconds) * 100), nativeBuildStatus === "downloading" ? 99 : 95);
 
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
-      {/* Top bar - app style */}
       <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
         <div className="w-9 h-9 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
           <Smartphone className="w-5 h-5" />
@@ -286,9 +468,7 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1 px-4 py-5 space-y-4 max-w-lg mx-auto w-full">
-        {/* URL Input Card */}
         <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3">
           <label className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Globe className="w-4 h-4 text-primary" />
@@ -309,12 +489,10 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Settings - show when URL valid */}
         {isReady && (
           <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in slide-in-from-top-2 duration-300">
             <p className="text-xs font-semibold text-muted-foreground">⚙️ إعدادات التطبيق</p>
             <div className="grid grid-cols-2 gap-3">
-              {/* App Name */}
               <div className="space-y-1">
                 <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
                 <input
@@ -324,7 +502,7 @@ const Index = () => {
                   className="w-full bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
               </div>
-              {/* App Color */}
+
               <div className="space-y-1">
                 <span className="text-[11px] text-muted-foreground">لون التطبيق</span>
                 <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2">
@@ -338,7 +516,7 @@ const Index = () => {
                 </div>
               </div>
             </div>
-            {/* Icon */}
+
             <div className="space-y-1">
               <span className="text-[11px] text-muted-foreground">أيقونة التطبيق</span>
               <input
@@ -348,9 +526,10 @@ const Index = () => {
                 onChange={handleIconUpload}
                 className="hidden"
               />
+
               {customIcon ? (
                 <div className="flex items-center gap-3 bg-secondary/60 rounded-lg px-3 py-2">
-                  <img src={customIcon} alt="أيقونة" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                  <img src={customIcon} alt="أيقونة التطبيق" className="w-10 h-10 rounded-xl object-cover shadow-sm" loading="lazy" />
                   <span className="text-xs text-foreground flex-1">تم رفع الأيقونة</span>
                   <button
                     onClick={() => setCustomIcon(null)}
@@ -372,8 +551,7 @@ const Index = () => {
           </div>
         )}
 
-        {/* Build Status Card - shows during/after build */}
-        {nativeBuildStatus && nativeBuildStatus !== "done" && (
+        {nativeBuildStatus !== "idle" && nativeBuildStatus !== "done" && (
           <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in fade-in">
             <div className="flex items-center gap-3">
               {(nativeBuildStatus === "triggering" || nativeBuildStatus === "building") && (
@@ -391,35 +569,39 @@ const Index = () => {
                   <X className="w-5 h-5 text-destructive" />
                 </div>
               )}
+
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">
                   {nativeBuildStatus === "triggering" && "جاري بدء البناء..."}
                   {nativeBuildStatus === "building" && "جاري بناء التطبيق..."}
-                  {nativeBuildStatus === "downloading" && "جاري تحميل الملف..."}
-                  {nativeBuildStatus === "error" && "فشل البناء"}
+                  {nativeBuildStatus === "downloading" && "اكتمل البناء... جاري التنزيل المباشر"}
+                  {nativeBuildStatus === "error" && "حصل خطأ في البناء أو التنزيل"}
                 </p>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Timer className="w-3.5 h-3.5" />
                   <span className="font-mono">{formatTime(buildElapsed)}</span>
-                  {(nativeBuildStatus === "building" || nativeBuildStatus === "triggering") && (
-                    <span>• تقريباً ٣-٥ دقائق</span>
-                  )}
+                  {isBuildInProgress && <span>• يستمر تلقائياً حتى لو خرجت من الصفحة</span>}
                 </div>
               </div>
             </div>
-            {/* Progress bar */}
-            {(nativeBuildStatus === "building" || nativeBuildStatus === "triggering") && (
+
+            {(nativeBuildStatus === "triggering" || nativeBuildStatus === "building" || nativeBuildStatus === "downloading") && (
               <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="h-full bg-primary rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }} />
               </div>
+            )}
+
+            {nativeBuildStatus === "error" && activeRunId && (
+              <button
+                onClick={handleRetryDownload}
+                className="w-full py-2.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors"
+              >
+                إعادة محاولة التنزيل
+              </button>
             )}
           </div>
         )}
 
-        {/* Build Done Card */}
         {nativeBuildStatus === "done" && (
           <div className="bg-accent rounded-2xl border border-primary/20 p-4 space-y-2 animate-in fade-in">
             <div className="flex items-center gap-3">
@@ -427,31 +609,24 @@ const Index = () => {
                 <CheckCircle2 className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-bold text-accent-foreground">تم التحميل بنجاح! ✅</p>
-                <p className="text-xs text-muted-foreground">الوقت: {formatTime(buildElapsed)} • ثبّت الملف على جهازك</p>
+                <p className="text-sm font-bold text-accent-foreground">تم تنزيل التطبيق بنجاح ✅</p>
+                <p className="text-xs text-muted-foreground">الوقت الكلي: {formatTime(buildElapsed)}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Action Buttons */}
         {isReady && (
           <div className="space-y-3 animate-in slide-in-from-bottom-3 duration-400">
-            {/* Main CTA - Build APK */}
             <button
               onClick={handleNativeBuild}
-              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building" || nativeBuildStatus === "downloading"}
+              disabled={isBuildInProgress}
               className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2.5 active:scale-[0.98]"
             >
-              {nativeBuildStatus === "building" || nativeBuildStatus === "triggering" ? (
+              {isBuildInProgress ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   جاري البناء... {formatTime(buildElapsed)}
-                </>
-              ) : nativeBuildStatus === "downloading" ? (
-                <>
-                  <Download className="w-5 h-5 animate-bounce" />
-                  جاري التحميل...
                 </>
               ) : (
                 <>
@@ -461,28 +636,72 @@ const Index = () => {
               )}
             </button>
 
-            {/* Secondary - PWA */}
-            <button
-              onClick={handleDownloadPWA}
-              className="w-full py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              <FileDown className="w-4 h-4 text-primary" />
-              تحميل ملفات PWA
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleDownloadPWA}
+                className="w-full py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                <FileDown className="w-4 h-4 text-primary" />
+                ملفات PWA
+              </button>
+
+              <button
+                onClick={() => setShowPreview((prev) => !prev)}
+                className="w-full py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              >
+                <Eye className="w-4 h-4 text-primary" />
+                {showPreview ? "إخفاء المعاينة" : "معاينة التطبيق"}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Info */}
+        {isReady && showPreview && (
+          <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in fade-in">
+            <p className="text-xs font-semibold text-muted-foreground">📱 معاينة التطبيق (بدون زوم)</p>
+
+            <div className="flex justify-center overflow-x-auto">
+              <div className="relative shrink-0 w-[320px] h-[568px]">
+                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-black overflow-hidden shadow-xl relative">
+                  <div
+                    className="h-7 px-3 flex items-center justify-between text-[10px] font-semibold text-primary-foreground relative z-10"
+                    style={{ backgroundColor: appColor }}
+                  >
+                    <span className="truncate">{appName}</span>
+                    {customIcon ? (
+                      <img src={customIcon} alt="أيقونة التطبيق" className="w-4 h-4 rounded object-cover" loading="lazy" />
+                    ) : (
+                      <Smartphone className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl z-20" />
+
+                  <div className="w-full overflow-hidden relative bg-card" style={{ height: "calc(100% - 28px)" }}>
+                    <iframe
+                      src={normalizedUrl}
+                      title="معاينة التطبيق"
+                      sandbox="allow-scripts allow-same-origin allow-popups"
+                      loading="lazy"
+                      className="w-full h-full border-none block"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isReady && (
           <div className="bg-accent/40 border border-primary/10 rounded-xl p-3.5 text-xs text-muted-foreground space-y-1.5 animate-in fade-in">
             <p className="font-semibold text-accent-foreground">💡 ملاحظة:</p>
-            <p>• ملف APK يُثبّت مباشرة على أجهزة أندرويد</p>
-            <p>• ملفات PWA ترفعها على استضافتك للتثبيت من المتصفح</p>
+            <p>• اللون الذي تختاره يُستخدم في شاشة فتح التطبيق أثناء التشغيل.</p>
+            <p>• الأيقونة التي ترفعها تُستخدم كأيقونة التطبيق على الجهاز.</p>
+            <p>• البناء يستمر في الخلفية ويمكن استئناف حالته عند الرجوع.</p>
           </div>
         )}
       </main>
 
-      {/* Bottom bar - app style */}
       <footer className="bg-card border-t border-border px-4 py-3 text-center">
         <p className="text-[11px] text-muted-foreground">WebToApp — حوّل أي موقع لتطبيق بسهولة</p>
       </footer>
