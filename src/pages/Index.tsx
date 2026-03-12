@@ -665,7 +665,7 @@ const Index = () => {
 
             <div className="flex justify-center overflow-x-auto">
               <div className="relative shrink-0 w-[320px] h-[568px]">
-                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-black overflow-hidden shadow-xl relative">
+                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground overflow-hidden shadow-xl relative">
                   <div
                     className="h-7 px-3 flex items-center justify-between text-[10px] font-semibold text-primary-foreground relative z-10"
                     style={{ backgroundColor: appColor }}
