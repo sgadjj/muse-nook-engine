@@ -7,9 +7,6 @@ import {
   Sparkles,
   CheckCircle2,
   FileDown,
-  Eye,
-  ZoomIn,
-  ZoomOut,
   ImagePlus,
   X,
   Timer,
@@ -21,7 +18,6 @@ import {
   downloadAllFiles,
   type AppConfig,
 } from "@/lib/generateFiles";
-
 
 function toBrandName(raw: string): string {
   const cleaned = raw
@@ -35,7 +31,6 @@ function toBrandName(raw: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join("")
     .replace(/[^\p{L}\p{N}]/gu, "");
-
   return compact.slice(0, 14) || "MyApp";
 }
 
@@ -53,34 +48,23 @@ function extractAppName(url: string): string {
     const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
     const parts = host.split(".").filter(Boolean);
     if (!parts.length) return "MyApp";
-
     if (host.endsWith("lovable.app") && parts.length >= 3) {
       const subdomain = parts[0].replace(/^id-preview--/i, "").replace(/--/g, "-");
       if (!isNoisyLabel(subdomain)) return toBrandName(subdomain);
     }
-
     const commonSecondLevel = new Set(["co", "com", "net", "org", "gov", "edu", "ac"]);
     const genericLabels = new Set(["www", "m", "app", "web", "site", "online", "store", "shop", "lovable", "preview", "id"]);
     const platformDomains = new Set(["vercel.app", "netlify.app", "github.io", "lovable.app"]);
-
     const domainTail = parts.length >= 2 ? `${parts[parts.length - 2]}.${parts[parts.length - 1]}` : "";
-
     let baseLabel = parts[Math.max(parts.length - 2, 0)] || parts[0];
-
     if (platformDomains.has(domainTail) && parts.length >= 3) {
       baseLabel = parts[0];
-    } else if (
-      parts.length >= 3 &&
-      commonSecondLevel.has(parts[parts.length - 2]) &&
-      parts[parts.length - 1].length === 2
-    ) {
+    } else if (parts.length >= 3 && commonSecondLevel.has(parts[parts.length - 2]) && parts[parts.length - 1].length === 2) {
       baseLabel = parts[parts.length - 3];
     }
-
     const picked = [baseLabel, ...parts].find(
       (label) => !genericLabels.has(label) && !isNoisyLabel(label) && /[\p{L}\p{N}]/u.test(label)
     ) || baseLabel;
-
     return toBrandName(picked);
   } catch {
     return "MyApp";
@@ -88,7 +72,6 @@ function extractAppName(url: string): string {
 }
 
 function extractThemeColor(url: string): string {
-  // Generate a consistent color from URL
   try {
     const parsed = new URL(url);
     const host = parsed.hostname;
@@ -137,15 +120,12 @@ function hasPreviewToken(raw: string): boolean {
   }
 }
 
-
 const Index = () => {
   const [url, setUrl] = useState("");
   const [appName, setAppName] = useState("");
   const [appColor, setAppColor] = useState("#22c55e");
-  
+
   const [isReady, setIsReady] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewScale, setPreviewScale] = useState(50);
 
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
@@ -180,7 +160,6 @@ const Index = () => {
 
   const normalizedUrl = sanitizeAppUrl(url);
 
-  // Auto-extract app name and color when URL changes
   useEffect(() => {
     if (isValidUrl(normalizedUrl)) {
       const name = extractAppName(normalizedUrl);
@@ -200,7 +179,6 @@ const Index = () => {
     toast.success("تم تحميل ملفات PWA! 📦");
   };
 
-
   // Timer for build elapsed
   useEffect(() => {
     if (buildStartTime && (nativeBuildStatus === "building" || nativeBuildStatus === "triggering")) {
@@ -214,6 +192,8 @@ const Index = () => {
   useEffect(() => {
     return () => { if (pollTimerRef.current) clearInterval(pollTimerRef.current); };
   }, []);
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   const handleNativeBuild = async () => {
     if (hasPreviewToken(url)) { toast.error("استخدم رابط منشور نهائي."); return; }
@@ -233,22 +213,19 @@ const Index = () => {
       const runId = data.runId;
       if (!runId) throw new Error("لم يتم العثور على معرّف البناء");
       setNativeBuildStatus("building");
-      toast.info("⚙️ جاري بناء تطبيق أصلي بدون شريط عنوان... ٣-٥ دقائق");
+      toast.info("⚙️ جاري بناء التطبيق... ٣-٥ دقائق");
       pollTimerRef.current = setInterval(async () => {
         try {
-          // Status check only - returns JSON, never binary
           const sr = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}`, {
             headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
           });
           if (!sr.ok) return;
           const sd = await sr.json();
-          
+
           if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
-            // Build done! Stop polling and start download
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setNativeBuildStatus("downloading");
             toast.info("⬇️ جاري تحميل التطبيق...");
-            
             try {
               const dlResp = await fetch(`${supabaseUrl}/functions/v1/build-native-apk?runId=${runId}&download=true&appName=${encodeURIComponent(config.appName)}`, {
                 headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
@@ -266,7 +243,7 @@ const Index = () => {
               document.body.removeChild(a);
               setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
               setNativeBuildStatus("done");
-              toast.success("✅ تم تحميل التطبيق! ثبّته على جهازك");
+              toast.success("✅ تم تحميل التطبيق بنجاح!");
             } catch (dlErr) {
               console.error("Download error:", dlErr);
               setNativeBuildStatus("error");
@@ -274,7 +251,7 @@ const Index = () => {
             }
             return;
           }
-          
+
           if (sd.status === "completed" && sd.conclusion !== "success") {
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setNativeBuildStatus("error");
@@ -289,43 +266,30 @@ const Index = () => {
     }
   };
 
+  const ESTIMATED_TIME = 180;
+  const progress = Math.min(Math.round((buildElapsed / ESTIMATED_TIME) * 100), 95);
+
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg gradient-main flex items-center justify-center shadow-glow">
-              <Smartphone className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <h1 className="text-lg font-bold text-foreground">WebToApp</h1>
-          </div>
-          <span className="text-xs text-muted-foreground bg-secondary px-3 py-1 rounded-full">
-            أدخل الرابط واحصل على تطبيقك
-          </span>
+    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+      {/* Top bar - app style */}
+      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
+        <div className="w-9 h-9 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
+          <Smartphone className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <h1 className="text-base font-bold leading-tight">WebToApp</h1>
+          <p className="text-[11px] opacity-80">حوّل أي موقع لتطبيق أندرويد</p>
+        </div>
+        <div className="flex items-center gap-1 bg-primary-foreground/15 px-2.5 py-1 rounded-full">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-medium">تلقائي</span>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        {/* Hero - compact */}
-        <div className="text-center space-y-3 py-4">
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-accent-foreground bg-accent px-3 py-1 rounded-full">
-            <Sparkles className="w-3.5 h-3.5" />
-            سريع وتلقائي
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground leading-tight">
-            حوّل أي موقع لـ
-            <span className="bg-clip-text text-transparent bg-gradient-to-l from-primary to-[hsl(170,60%,45%)]">
-              {" "}تطبيق جوال
-            </span>
-          </h2>
-          <p className="text-muted-foreground text-sm max-w-md mx-auto">
-            الصق رابط الموقع وسنجهز لك كل شي تلقائياً
-          </p>
-        </div>
-
-        {/* URL Input - the main action */}
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft space-y-4">
+      {/* Main content */}
+      <main className="flex-1 px-4 py-5 space-y-4 max-w-lg mx-auto w-full">
+        {/* URL Input Card */}
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3">
           <label className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Globe className="w-4 h-4 text-primary" />
             رابط الموقع
@@ -337,210 +301,190 @@ const Index = () => {
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://example.com"
               dir="ltr"
-              className="w-full px-4 py-3.5 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all font-mono text-sm pl-4 pr-12"
+              className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all font-mono text-sm"
             />
             {isReady && (
               <CheckCircle2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-in fade-in" />
             )}
           </div>
+        </div>
 
-          {/* Auto-detected info */}
-          {isReady && (
-            <div className="flex flex-wrap items-center gap-3 animate-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2 text-sm">
-                <span className="text-muted-foreground">الاسم:</span>
+        {/* Settings - show when URL valid */}
+        {isReady && (
+          <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in slide-in-from-top-2 duration-300">
+            <p className="text-xs font-semibold text-muted-foreground">⚙️ إعدادات التطبيق</p>
+            <div className="grid grid-cols-2 gap-3">
+              {/* App Name */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
                 <input
                   type="text"
                   value={appName}
                   onChange={(e) => setAppName(e.target.value)}
-                  className="bg-transparent text-foreground font-semibold w-24 focus:outline-none border-b border-transparent focus:border-primary/40"
+                  className="w-full bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
               </div>
-              <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2 text-sm">
-                <span className="text-muted-foreground">اللون:</span>
-                <input
-                  type="color"
-                  value={appColor}
-                  onChange={(e) => setAppColor(e.target.value)}
-                  className="w-6 h-6 rounded border border-input cursor-pointer"
-                />
-              </div>
-              {/* App Icon Upload */}
-              <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2 text-sm">
-                <span className="text-muted-foreground">الأيقونة:</span>
-                <input
-                  ref={iconInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleIconUpload}
-                  className="hidden"
-                />
-                {customIcon ? (
-                  <div className="flex items-center gap-1.5">
-                    <img src={customIcon} alt="أيقونة" className="w-6 h-6 rounded object-cover" />
-                    <button
-                      onClick={() => setCustomIcon(null)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => iconInputRef.current?.click()}
-                    className="flex items-center gap-1 text-primary hover:text-primary/80 font-semibold transition-colors"
-                  >
-                    <ImagePlus className="w-4 h-4" />
-                    تحميل
-                  </button>
-                )}
+              {/* App Color */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-muted-foreground">لون التطبيق</span>
+                <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2">
+                  <input
+                    type="color"
+                    value={appColor}
+                    onChange={(e) => setAppColor(e.target.value)}
+                    className="w-7 h-7 rounded border-none cursor-pointer bg-transparent"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">{appColor}</span>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+            {/* Icon */}
+            <div className="space-y-1">
+              <span className="text-[11px] text-muted-foreground">أيقونة التطبيق</span>
+              <input
+                ref={iconInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleIconUpload}
+                className="hidden"
+              />
+              {customIcon ? (
+                <div className="flex items-center gap-3 bg-secondary/60 rounded-lg px-3 py-2">
+                  <img src={customIcon} alt="أيقونة" className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                  <span className="text-xs text-foreground flex-1">تم رفع الأيقونة</span>
+                  <button
+                    onClick={() => setCustomIcon(null)}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => iconInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-2 bg-secondary/60 rounded-lg px-3 py-3 text-sm text-primary font-semibold hover:bg-secondary transition-colors"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  رفع أيقونة مخصصة
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-        {/* Action buttons - appear when URL is valid */}
+        {/* Build Status Card - shows during/after build */}
+        {nativeBuildStatus && nativeBuildStatus !== "done" && (
+          <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              {(nativeBuildStatus === "triggering" || nativeBuildStatus === "building") && (
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+              )}
+              {nativeBuildStatus === "downloading" && (
+                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
+                  <Download className="w-5 h-5 text-primary animate-bounce" />
+                </div>
+              )}
+              {nativeBuildStatus === "error" && (
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <X className="w-5 h-5 text-destructive" />
+                </div>
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {nativeBuildStatus === "triggering" && "جاري بدء البناء..."}
+                  {nativeBuildStatus === "building" && "جاري بناء التطبيق..."}
+                  {nativeBuildStatus === "downloading" && "جاري تحميل الملف..."}
+                  {nativeBuildStatus === "error" && "فشل البناء"}
+                </p>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span className="font-mono">{formatTime(buildElapsed)}</span>
+                  {(nativeBuildStatus === "building" || nativeBuildStatus === "triggering") && (
+                    <span>• تقريباً ٣-٥ دقائق</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Progress bar */}
+            {(nativeBuildStatus === "building" || nativeBuildStatus === "triggering") && (
+              <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Build Done Card */}
+        {nativeBuildStatus === "done" && (
+          <div className="bg-accent rounded-2xl border border-primary/20 p-4 space-y-2 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-accent-foreground">تم التحميل بنجاح! ✅</p>
+                <p className="text-xs text-muted-foreground">الوقت: {formatTime(buildElapsed)} • ثبّت الملف على جهازك</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
         {isReady && (
           <div className="space-y-3 animate-in slide-in-from-bottom-3 duration-400">
-            {/* Native APK - بدون شريط عنوان */}
+            {/* Main CTA - Build APK */}
             <button
               onClick={handleNativeBuild}
-              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building"}
-              className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5"
+              disabled={nativeBuildStatus === "triggering" || nativeBuildStatus === "building" || nativeBuildStatus === "downloading"}
+              className="w-full py-4 rounded-2xl gradient-main text-primary-foreground font-bold text-base shadow-glow hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2.5 active:scale-[0.98]"
             >
-            {(() => {
-              const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
-              const ESTIMATED_TIME = 180; // ~3 minutes average
-              const progress = Math.min(Math.round((buildElapsed / ESTIMATED_TIME) * 100), 95);
-              
-              if (nativeBuildStatus === "triggering") return (
-                <><Loader2 className="w-5 h-5 animate-spin" /> جاري بدء البناء... <Timer className="w-4 h-4" /> {formatTime(buildElapsed)}</>
-              );
-              if (nativeBuildStatus === "building") return (
-                <div className="flex flex-col items-center gap-1 w-full">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>جاري البناء...</span>
-                    <Timer className="w-4 h-4" />
-                    <span className="font-mono">{formatTime(buildElapsed)}</span>
-                  </div>
-                  <div className="w-3/4 h-1.5 bg-primary-foreground/30 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-foreground rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              );
-              if (nativeBuildStatus === "downloading") return (
-                <><Download className="w-5 h-5 animate-bounce" /> جاري تحميل التطبيق...</>
-              );
-              if (nativeBuildStatus === "done") return (
-                <><CheckCircle2 className="w-5 h-5" /> ✅ تم التحميل بنجاح! ({formatTime(buildElapsed)})</>
-              );
-              return <><Box className="w-5 h-5" /> تحميل APK (أندرويد)</>;
-            })()}
+              {nativeBuildStatus === "building" || nativeBuildStatus === "triggering" ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  جاري البناء... {formatTime(buildElapsed)}
+                </>
+              ) : nativeBuildStatus === "downloading" ? (
+                <>
+                  <Download className="w-5 h-5 animate-bounce" />
+                  جاري التحميل...
+                </>
+              ) : (
+                <>
+                  <Box className="w-5 h-5" />
+                  بناء تطبيق APK
+                </>
+              )}
             </button>
 
-            <div className="flex gap-3">
-              <button
-                onClick={handleDownloadPWA}
-                className="flex-1 py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2"
-              >
-                <FileDown className="w-4 h-4" />
-                ملفات PWA
-              </button>
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                className="flex-1 py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2"
-              >
-                <Eye className="w-4 h-4" />
-                معاينة التطبيق
-              </button>
-            </div>
+            {/* Secondary - PWA */}
+            <button
+              onClick={handleDownloadPWA}
+              className="w-full py-3 rounded-xl bg-card border border-border text-foreground font-semibold text-sm hover:bg-secondary/60 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+            >
+              <FileDown className="w-4 h-4 text-primary" />
+              تحميل ملفات PWA
+            </button>
           </div>
         )}
 
-        {/* Mobile Preview */}
-        {isReady && showPreview && (
-          <div className="space-y-4 animate-in fade-in duration-300">
-            {/* Zoom Preset Buttons */}
-            <div className="flex items-center justify-center gap-3 bg-card rounded-xl border border-border p-3">
-              <ZoomOut className="w-4 h-4 text-muted-foreground" />
-              {[25, 50].map((val) => (
-                <button
-                  key={val}
-                  onClick={() => setPreviewScale(val)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    previewScale === val
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {val}% {val === 25 ? "(سطح مكتب)" : "(جوال)"}
-                </button>
-              ))}
-              <ZoomIn className="w-4 h-4 text-muted-foreground" />
-            </div>
-
-            <div className="flex justify-center overflow-auto max-h-[80vh]">
-              <div
-                className="relative shrink-0"
-                style={{ width: "320px", height: "568px" }}
-              >
-                {/* Phone frame - fixed size */}
-                <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-black overflow-hidden shadow-xl relative">
-                  {/* Status bar */}
-                  <div
-                    className="h-7 flex items-center justify-center text-[10px] font-semibold text-primary-foreground relative z-10"
-                    style={{ backgroundColor: appColor }}
-                  >
-                    {appName}
-                  </div>
-                  {/* Notch */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/80 rounded-b-2xl z-20" />
-                  {/* Content area - website zooms inside this fixed container */}
-                  <div
-                    className="w-full overflow-hidden relative bg-white"
-                    style={{ height: "calc(100% - 28px)" }}
-                  >
-                    {/* 
-                      Phone content area is ~308px wide (320 - 12px borders).
-                      At 50%: iframe = 616px wide scaled to 308px (mobile view)
-                      At 25%: iframe = 1232px wide scaled to 308px (desktop view)
-                    */}
-                    <iframe
-                      src={normalizedUrl}
-                      title="معاينة التطبيق"
-                      sandbox="allow-scripts allow-same-origin allow-popups"
-                      style={{
-                        border: "none",
-                        display: "block",
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: `${Math.round(308 / (previewScale / 100))}px`,
-                        height: `${Math.round(540 / (previewScale / 100))}px`,
-                        transform: `scale(${previewScale / 100})`,
-                        transformOrigin: "top left",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Info note */}
+        {/* Info */}
         {isReady && (
-          <div className="bg-accent/40 border border-primary/10 rounded-xl p-4 text-sm text-muted-foreground space-y-2 animate-in fade-in">
+          <div className="bg-accent/40 border border-primary/10 rounded-xl p-3.5 text-xs text-muted-foreground space-y-1.5 animate-in fade-in">
             <p className="font-semibold text-accent-foreground">💡 ملاحظة:</p>
-            <p>• ملف <strong>APK</strong> يُثبّت مباشرة على أجهزة أندرويد.</p>
-            <p>• ملفات <strong>PWA</strong> ترفعها على استضافتك ويتم تثبيت التطبيق من المتصفح.</p>
+            <p>• ملف APK يُثبّت مباشرة على أجهزة أندرويد</p>
+            <p>• ملفات PWA ترفعها على استضافتك للتثبيت من المتصفح</p>
           </div>
         )}
       </main>
 
-      <footer className="border-t border-border mt-12 py-5 text-center text-xs text-muted-foreground">
-        WebToApp — حوّل أي موقع لتطبيق بسهولة
+      {/* Bottom bar - app style */}
+      <footer className="bg-card border-t border-border px-4 py-3 text-center">
+        <p className="text-[11px] text-muted-foreground">WebToApp — حوّل أي موقع لتطبيق بسهولة</p>
       </footer>
     </div>
   );
