@@ -184,8 +184,9 @@ serve(async (req) => {
       const entries = await zipReader.getEntries();
       const apkEntry = entries.find((e: any) => e.filename.endsWith(".apk"));
 
-      if (apkEntry && apkEntry.getData) {
-        const apkBlob = await apkEntry.getData!(new BlobWriter("application/vnd.android.package-archive"));
+      if (apkEntry && typeof apkEntry.getData === "function") {
+        const readApkData = apkEntry.getData.bind(apkEntry);
+        const apkBlob = await readApkData(new BlobWriter("application/vnd.android.package-archive"));
         const apkBuffer = await apkBlob.arrayBuffer();
         await zipReader.close();
 

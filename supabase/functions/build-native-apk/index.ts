@@ -136,7 +136,8 @@ async function downloadApk(runId: string, resolvedRepo: string, githubToken: str
     if (apkFileName) {
       console.log("Extracted APK:", apkFileName, "size:", unzipped[apkFileName].length);
       const apkData = unzipped[apkFileName];
-      return new Response(apkData.buffer as ArrayBuffer, {
+      const apkBlob = new Blob([apkData], { type: "application/vnd.android.package-archive" });
+      return new Response(apkBlob, {
         headers: {
           ...corsHeaders,
           "Content-Type": "application/vnd.android.package-archive",
