@@ -389,6 +389,9 @@ const Index = () => {
       return;
     }
 
+    stopPolling();
+    clearBuildSession();
+    setActiveRunId(null);
     downloadingRef.current = false;
     const startedAt = Date.now();
     setBuildStartTime(startedAt);
