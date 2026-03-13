@@ -671,6 +671,11 @@ const Index = () => {
               <div>
                 <p className="text-sm font-bold text-accent-foreground">تم تنزيل التطبيق بنجاح ✅</p>
                 <p className="text-xs text-muted-foreground">الوقت الكلي: {formatTime(buildElapsed)}</p>
+                {buildCompletedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    وقت الاكتمال: {new Date(buildCompletedAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </p>
+                )}
               </div>
             </div>
           </div>
