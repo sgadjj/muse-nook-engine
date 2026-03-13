@@ -502,11 +502,12 @@ const Index = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
-  const estimatedSeconds = 240;
   const progress =
     nativeBuildStatus === "done"
       ? 100
-      : Math.min(Math.round((buildElapsed / estimatedSeconds) * 100), nativeBuildStatus === "downloading" ? 99 : 95);
+      : nativeBuildStatus === "downloading"
+        ? 99
+        : Math.max(0, Math.min(100, buildProgress));
 
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
