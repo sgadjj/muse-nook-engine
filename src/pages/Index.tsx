@@ -444,6 +444,10 @@ const Index = () => {
     const startedAt = Date.now();
     setBuildStartTime(startedAt);
     setBuildElapsed(0);
+    setBuildProgress(2);
+    setBuildCompletedAt(null);
+    setBuildTotalSteps(null);
+    setBuildCompletedSteps(null);
     setNativeBuildStatus("triggering");
 
     const backendUrl = import.meta.env.VITE_SUPABASE_URL;
