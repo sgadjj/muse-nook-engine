@@ -175,6 +175,10 @@ const Index = () => {
 
   const [buildStartTime, setBuildStartTime] = useState<number | null>(null);
   const [buildElapsed, setBuildElapsed] = useState(0);
+  const [buildProgress, setBuildProgress] = useState(0);
+  const [buildCompletedAt, setBuildCompletedAt] = useState<number | null>(null);
+  const [buildTotalSteps, setBuildTotalSteps] = useState<number | null>(null);
+  const [buildCompletedSteps, setBuildCompletedSteps] = useState<number | null>(null);
 
   const isBuildInProgress =
     nativeBuildStatus === "triggering" ||
