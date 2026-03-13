@@ -19,11 +19,24 @@ import { downloadAllFiles, type AppConfig } from "@/lib/generateFiles";
 
 type BuildStatus = "idle" | "triggering" | "building" | "downloading" | "done" | "error";
 
+type BuildStatusResponse = {
+  status: string;
+  conclusion: string | null;
+  message?: string;
+  downloadReady?: boolean;
+  progress?: number;
+  totalSteps?: number | null;
+  completedSteps?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+};
+
 type PersistedBuildSession = {
   runId: string;
   appName: string;
   startedAt: number;
   status: "triggering" | "building" | "downloading";
+  progress?: number;
 };
 
 const BUILD_SESSION_STORAGE_KEY = "webtoapp-native-build-session-v1";
@@ -162,6 +175,10 @@ const Index = () => {
 
   const [buildStartTime, setBuildStartTime] = useState<number | null>(null);
   const [buildElapsed, setBuildElapsed] = useState(0);
+  const [buildProgress, setBuildProgress] = useState(0);
+  const [buildCompletedAt, setBuildCompletedAt] = useState<number | null>(null);
+  const [buildTotalSteps, setBuildTotalSteps] = useState<number | null>(null);
+  const [buildCompletedSteps, setBuildCompletedSteps] = useState<number | null>(null);
 
   const isBuildInProgress =
     nativeBuildStatus === "triggering" ||
@@ -199,11 +216,13 @@ const Index = () => {
       if (downloadingRef.current) return;
       downloadingRef.current = true;
       setNativeBuildStatus("downloading");
+      setBuildProgress(99);
       persistBuildSession({
         runId,
         appName: fileLabel,
         startedAt: buildStartTime ?? Date.now(),
         status: "downloading",
+        progress: 99,
       });
 
       const backendUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -238,10 +257,13 @@ const Index = () => {
 
         stopPolling();
         clearBuildSession();
+        setBuildProgress(100);
+        setBuildCompletedAt((prev) => prev ?? Date.now());
         setNativeBuildStatus("done");
         toast.success("✅ اكتمل البناء وتم تنزيل التطبيق مباشرة");
       } catch (error) {
         console.error("Download error:", error);
+        setBuildProgress(100);
         setNativeBuildStatus("error");
         toast.error("اكتمل البناء لكن فشل التنزيل المباشر. جرّب مرة ثانية.");
       } finally {
@@ -270,9 +292,28 @@ const Index = () => {
           });
 
           if (!sr.ok) return;
-          const sd = await sr.json();
+          const sd = (await sr.json()) as BuildStatusResponse;
+
+          const serverProgress =
+            typeof sd.progress === "number" ? Math.max(0, Math.min(100, Math.round(sd.progress))) : null;
+          if (serverProgress !== null) setBuildProgress(serverProgress);
+          if (typeof sd.totalSteps === "number") setBuildTotalSteps(sd.totalSteps);
+          if (typeof sd.completedSteps === "number") setBuildCompletedSteps(sd.completedSteps);
+
+          if (sd.startedAt) {
+            const serverStartedAt = Date.parse(sd.startedAt);
+            if (Number.isFinite(serverStartedAt) && serverStartedAt > 0) {
+              setBuildStartTime(serverStartedAt);
+              setBuildElapsed(Math.floor((Date.now() - serverStartedAt) / 1000));
+            }
+          }
 
           if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
+            setBuildProgress(100);
+            if (sd.completedAt) {
+              const completedTs = Date.parse(sd.completedAt);
+              if (Number.isFinite(completedTs) && completedTs > 0) setBuildCompletedAt(completedTs);
+            }
             await downloadBuiltApk(runId, fileLabel);
             return;
           }
@@ -280,6 +321,11 @@ const Index = () => {
           if (sd.status === "completed" && sd.conclusion && sd.conclusion !== "success") {
             stopPolling();
             clearBuildSession();
+            setBuildProgress(100);
+            if (sd.completedAt) {
+              const completedTs = Date.parse(sd.completedAt);
+              if (Number.isFinite(completedTs) && completedTs > 0) setBuildCompletedAt(completedTs);
+            }
             setNativeBuildStatus("error");
             toast.error("فشل بناء التطبيق.");
             return;
@@ -292,6 +338,7 @@ const Index = () => {
               appName: fileLabel,
               startedAt,
               status: "building",
+              progress: serverProgress ?? 10,
             });
           }
         } catch {
@@ -331,6 +378,7 @@ const Index = () => {
 
       setBuildStartTime(session.startedAt);
       setBuildElapsed(Math.floor((Date.now() - session.startedAt) / 1000));
+      setBuildProgress(session.progress ?? 8);
       setNativeBuildStatus(session.status === "triggering" ? "building" : session.status);
       setActiveRunId(session.runId);
 
@@ -396,6 +444,10 @@ const Index = () => {
     const startedAt = Date.now();
     setBuildStartTime(startedAt);
     setBuildElapsed(0);
+    setBuildProgress(2);
+    setBuildCompletedAt(null);
+    setBuildTotalSteps(null);
+    setBuildCompletedSteps(null);
     setNativeBuildStatus("triggering");
 
     const backendUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -430,6 +482,7 @@ const Index = () => {
         appName: config.appName || "app",
         startedAt,
         status: "building",
+        progress: 8,
       });
 
       toast.info("⚙️ بدء البناء بنجاح، سيتم التنزيل فور الاكتمال");
@@ -449,11 +502,12 @@ const Index = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
-  const estimatedSeconds = 240;
   const progress =
     nativeBuildStatus === "done"
       ? 100
-      : Math.min(Math.round((buildElapsed / estimatedSeconds) * 100), nativeBuildStatus === "downloading" ? 99 : 95);
+      : nativeBuildStatus === "downloading"
+        ? 99
+        : Math.max(0, Math.min(100, buildProgress));
 
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
@@ -580,9 +634,12 @@ const Index = () => {
                   {nativeBuildStatus === "downloading" && "اكتمل البناء... جاري التنزيل المباشر"}
                   {nativeBuildStatus === "error" && "حصل خطأ في البناء أو التنزيل"}
                 </p>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Timer className="w-3.5 h-3.5" />
                   <span className="font-mono">{formatTime(buildElapsed)}</span>
+                  {buildTotalSteps !== null && buildCompletedSteps !== null && (
+                    <span>• الخطوات: {buildCompletedSteps}/{buildTotalSteps}</span>
+                  )}
                   {isBuildInProgress && <span>• يستمر تلقائياً حتى لو خرجت من الصفحة</span>}
                 </div>
               </div>
@@ -614,6 +671,11 @@ const Index = () => {
               <div>
                 <p className="text-sm font-bold text-accent-foreground">تم تنزيل التطبيق بنجاح ✅</p>
                 <p className="text-xs text-muted-foreground">الوقت الكلي: {formatTime(buildElapsed)}</p>
+                {buildCompletedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    وقت الاكتمال: {new Date(buildCompletedAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </p>
+                )}
               </div>
             </div>
           </div>

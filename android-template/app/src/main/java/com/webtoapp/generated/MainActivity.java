@@ -1,16 +1,47 @@
 package com.webtoapp.generated;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
+    private ValueCallback<Uri[]> filePathCallback;
+
+    private final ActivityResultLauncher<Intent> filePickerLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (filePathCallback == null) return;
+
+            Uri[] uris = null;
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                Intent data = result.getData();
+                Uri dataUri = data.getData();
+                if (dataUri != null) {
+                    uris = new Uri[]{dataUri};
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    uris = new Uri[count];
+                    for (int i = 0; i < count; i++) {
+                        uris[i] = data.getClipData().getItemAt(i).getUri();
+                    }
+                }
+            }
+
+            filePathCallback.onReceiveValue(uris);
+            filePathCallback = null;
+        });
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -23,17 +54,73 @@ public class MainActivity extends AppCompatActivity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        }
+
+        webView.clearCache(true);
         webView.setWebViewClient(new WebViewClient());
-        webView.setWebChromeClient(new WebChromeClient());
-        webView.loadUrl("APP_URL");
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams fileChooserParams) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+
+                Intent intent;
+                try {
+                    intent = fileChooserParams != null ? fileChooserParams.createIntent() : new Intent(Intent.ACTION_GET_CONTENT);
+                } catch (Exception e) {
+                    filePathCallback = null;
+                    return false;
+                }
+
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("image/*");
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false);
+
+                try {
+                    filePickerLauncher.launch(intent);
+                    return true;
+                } catch (Exception e) {
+                    filePathCallback = null;
+                    return false;
+                }
+            }
+        });
+
+        try {
+            int brandColor = Color.parseColor("APP_COLOR");
+            webView.setBackgroundColor(brandColor);
+            getWindow().setStatusBarColor(brandColor);
+            getWindow().setNavigationBarColor(brandColor);
+            findViewById(android.R.id.content).setBackgroundColor(brandColor);
+        } catch (Exception ignored) {
+            // keep defaults if invalid color
+        }
+
+        webView.loadUrl(addCacheBustParam("APP_URL"));
         hideSystemUI();
+    }
+
+    private String addCacheBustParam(String rawUrl) {
+        try {
+            Uri uri = Uri.parse(rawUrl);
+            return uri.buildUpon()
+                .appendQueryParameter("_wvts", String.valueOf(System.currentTimeMillis()))
+                .build()
+                .toString();
+        } catch (Exception ignored) {
+            return rawUrl;
+        }
     }
 
     private void hideSystemUI() {
@@ -58,5 +145,18 @@ public class MainActivity extends AppCompatActivity {
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) webView.goBack();
         else super.onBackPressed();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (filePathCallback != null) {
+            filePathCallback.onReceiveValue(null);
+            filePathCallback = null;
+        }
+        if (webView != null) {
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 }
