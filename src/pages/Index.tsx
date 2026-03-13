@@ -482,6 +482,7 @@ const Index = () => {
         appName: config.appName || "app",
         startedAt,
         status: "building",
+        progress: 8,
       });
 
       toast.info("⚙️ بدء البناء بنجاح، سيتم التنزيل فور الاكتمال");
