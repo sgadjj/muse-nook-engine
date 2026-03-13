@@ -634,9 +634,12 @@ const Index = () => {
                   {nativeBuildStatus === "downloading" && "اكتمل البناء... جاري التنزيل المباشر"}
                   {nativeBuildStatus === "error" && "حصل خطأ في البناء أو التنزيل"}
                 </p>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Timer className="w-3.5 h-3.5" />
                   <span className="font-mono">{formatTime(buildElapsed)}</span>
+                  {buildTotalSteps !== null && buildCompletedSteps !== null && (
+                    <span>• الخطوات: {buildCompletedSteps}/{buildTotalSteps}</span>
+                  )}
                   {isBuildInProgress && <span>• يستمر تلقائياً حتى لو خرجت من الصفحة</span>}
                 </div>
               </div>
