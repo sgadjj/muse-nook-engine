@@ -19,11 +19,24 @@ import { downloadAllFiles, type AppConfig } from "@/lib/generateFiles";
 
 type BuildStatus = "idle" | "triggering" | "building" | "downloading" | "done" | "error";
 
+type BuildStatusResponse = {
+  status: string;
+  conclusion: string | null;
+  message?: string;
+  downloadReady?: boolean;
+  progress?: number;
+  totalSteps?: number | null;
+  completedSteps?: number | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+};
+
 type PersistedBuildSession = {
   runId: string;
   appName: string;
   startedAt: number;
   status: "triggering" | "building" | "downloading";
+  progress?: number;
 };
 
 const BUILD_SESSION_STORAGE_KEY = "webtoapp-native-build-session-v1";
