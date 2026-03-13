@@ -62,6 +62,40 @@ async function uploadCustomIcon(base64Data: string, resolvedRepo: string, branch
   return true;
 }
 
+async function fetchRunProgress(runId: string, resolvedRepo: string, githubToken: string) {
+  try {
+    const jobsResp = await fetch(
+      `${GITHUB_API}/repos/${resolvedRepo}/actions/runs/${runId}/jobs?per_page=100`,
+      { headers: getGitHubHeaders(githubToken) }
+    );
+    if (!jobsResp.ok) return null;
+
+    const jobsData = await jobsResp.json();
+    const jobs = Array.isArray(jobsData.jobs) ? jobsData.jobs : [];
+    if (!jobs.length) {
+      return { progress: 8, totalSteps: 0, completedSteps: 0, failedSteps: 0 };
+    }
+
+    let totalSteps = 0;
+    let completedSteps = 0;
+    let failedSteps = 0;
+
+    for (const job of jobs) {
+      const steps = Array.isArray(job.steps) && job.steps.length > 0 ? job.steps : [job];
+      totalSteps += steps.length;
+      completedSteps += steps.filter((step: any) => step.status === "completed").length;
+      failedSteps += steps.filter((step: any) => step.conclusion === "failure").length;
+    }
+
+    const rawProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+    const progress = Math.max(8, Math.min(rawProgress, 99));
+
+    return { progress, totalSteps, completedSteps, failedSteps };
+  } catch {
+    return null;
+  }
+}
+
 // Status-only check: returns JSON, never binary
 async function getRunStatus(runId: string, resolvedRepo: string, githubToken: string) {
   const runResp = await fetch(
@@ -70,14 +104,26 @@ async function getRunStatus(runId: string, resolvedRepo: string, githubToken: st
   );
   if (!runResp.ok) {
     if (runResp.status === 404) {
-      return { status: "queued", conclusion: null, message: "Build started, waiting for status..." };
+      return { status: "queued", conclusion: null, message: "Build started, waiting for status...", progress: 8 };
     }
-    return { status: "unknown", conclusion: null, message: "Failed to check status" };
+    return { status: "unknown", conclusion: null, message: "Failed to check status", progress: 0 };
   }
+
   const runData = await runResp.json();
+  const progressInfo = await fetchRunProgress(runId, resolvedRepo, githubToken);
+
   if (runData.status !== "completed") {
-    return { status: runData.status, conclusion: null, message: "Build in progress..." };
+    return {
+      status: runData.status,
+      conclusion: null,
+      message: "Build in progress...",
+      progress: progressInfo?.progress ?? (runData.status === "queued" ? 8 : 15),
+      totalSteps: progressInfo?.totalSteps ?? null,
+      completedSteps: progressInfo?.completedSteps ?? null,
+      startedAt: runData.run_started_at || runData.created_at || null,
+    };
   }
+
   if (runData.conclusion !== "success") {
     let failureDetails: any = null;
     try {
@@ -98,15 +144,43 @@ async function getRunStatus(runId: string, resolvedRepo: string, githubToken: st
               logSnippet = cleaned || raw.slice(-2000);
             }
           } catch {}
-          return { id: job.id, name: job.name, conclusion: job.conclusion, failedSteps: (job.steps || []).filter((s: any) => s.conclusion === "failure").map((s: any) => s.name), logSnippet };
+          return {
+            id: job.id,
+            name: job.name,
+            conclusion: job.conclusion,
+            failedSteps: (job.steps || []).filter((s: any) => s.conclusion === "failure").map((s: any) => s.name),
+            logSnippet,
+          };
         }));
         failureDetails = enriched;
       }
     } catch {}
-    return { status: "completed", conclusion: runData.conclusion, message: "Build failed", failureDetails };
+
+    return {
+      status: "completed",
+      conclusion: runData.conclusion,
+      message: "Build failed",
+      failureDetails,
+      progress: 100,
+      totalSteps: progressInfo?.totalSteps ?? null,
+      completedSteps: progressInfo?.completedSteps ?? null,
+      startedAt: runData.run_started_at || runData.created_at || null,
+      completedAt: runData.updated_at || null,
+    };
   }
+
   // Success!
-  return { status: "completed", conclusion: "success", message: "Build completed!", downloadReady: true };
+  return {
+    status: "completed",
+    conclusion: "success",
+    message: "Build completed!",
+    downloadReady: true,
+    progress: 100,
+    totalSteps: progressInfo?.totalSteps ?? null,
+    completedSteps: progressInfo?.completedSteps ?? null,
+    startedAt: runData.run_started_at || runData.created_at || null,
+    completedAt: runData.updated_at || null,
+  };
 }
 
 // Download APK: fetches artifact from GitHub and returns binary
