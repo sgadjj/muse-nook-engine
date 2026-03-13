@@ -378,6 +378,7 @@ const Index = () => {
 
       setBuildStartTime(session.startedAt);
       setBuildElapsed(Math.floor((Date.now() - session.startedAt) / 1000));
+      setBuildProgress(session.progress ?? 8);
       setNativeBuildStatus(session.status === "triggering" ? "building" : session.status);
       setActiveRunId(session.runId);
 
