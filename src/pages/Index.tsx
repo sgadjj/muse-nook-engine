@@ -216,11 +216,13 @@ const Index = () => {
       if (downloadingRef.current) return;
       downloadingRef.current = true;
       setNativeBuildStatus("downloading");
+      setBuildProgress(99);
       persistBuildSession({
         runId,
         appName: fileLabel,
         startedAt: buildStartTime ?? Date.now(),
         status: "downloading",
+        progress: 99,
       });
 
       const backendUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -255,10 +257,13 @@ const Index = () => {
 
         stopPolling();
         clearBuildSession();
+        setBuildProgress(100);
+        setBuildCompletedAt((prev) => prev ?? Date.now());
         setNativeBuildStatus("done");
         toast.success("✅ اكتمل البناء وتم تنزيل التطبيق مباشرة");
       } catch (error) {
         console.error("Download error:", error);
+        setBuildProgress(100);
         setNativeBuildStatus("error");
         toast.error("اكتمل البناء لكن فشل التنزيل المباشر. جرّب مرة ثانية.");
       } finally {
@@ -287,9 +292,28 @@ const Index = () => {
           });
 
           if (!sr.ok) return;
-          const sd = await sr.json();
+          const sd = (await sr.json()) as BuildStatusResponse;
+
+          const serverProgress =
+            typeof sd.progress === "number" ? Math.max(0, Math.min(100, Math.round(sd.progress))) : null;
+          if (serverProgress !== null) setBuildProgress(serverProgress);
+          if (typeof sd.totalSteps === "number") setBuildTotalSteps(sd.totalSteps);
+          if (typeof sd.completedSteps === "number") setBuildCompletedSteps(sd.completedSteps);
+
+          if (sd.startedAt) {
+            const serverStartedAt = Date.parse(sd.startedAt);
+            if (Number.isFinite(serverStartedAt) && serverStartedAt > 0) {
+              setBuildStartTime(serverStartedAt);
+              setBuildElapsed(Math.floor((Date.now() - serverStartedAt) / 1000));
+            }
+          }
 
           if (sd.status === "completed" && sd.conclusion === "success" && sd.downloadReady) {
+            setBuildProgress(100);
+            if (sd.completedAt) {
+              const completedTs = Date.parse(sd.completedAt);
+              if (Number.isFinite(completedTs) && completedTs > 0) setBuildCompletedAt(completedTs);
+            }
             await downloadBuiltApk(runId, fileLabel);
             return;
           }
@@ -297,6 +321,11 @@ const Index = () => {
           if (sd.status === "completed" && sd.conclusion && sd.conclusion !== "success") {
             stopPolling();
             clearBuildSession();
+            setBuildProgress(100);
+            if (sd.completedAt) {
+              const completedTs = Date.parse(sd.completedAt);
+              if (Number.isFinite(completedTs) && completedTs > 0) setBuildCompletedAt(completedTs);
+            }
             setNativeBuildStatus("error");
             toast.error("فشل بناء التطبيق.");
             return;
@@ -309,6 +338,7 @@ const Index = () => {
               appName: fileLabel,
               startedAt,
               status: "building",
+              progress: serverProgress ?? 10,
             });
           }
         } catch {
