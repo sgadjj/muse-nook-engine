@@ -1,12 +1,16 @@
 package com.webtoapp.generated;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.GeolocationPermissions;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -15,10 +19,14 @@ import android.webkit.WebViewClient;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int REQ_RUNTIME_PERMS = 1001;
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
+    private PermissionRequest pendingWebPermissionRequest;
 
     private final ActivityResultLauncher<Intent> filePickerLauncher =
         registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -30,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
                 Uri dataUri = data.getData();
                 if (dataUri != null) {
                     uris = new Uri[]{dataUri};
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && data.getClipData() != null) {
+                } else if (data.getClipData() != null) {
                     int count = data.getClipData().getItemCount();
                     uris = new Uri[count];
                     for (int i = 0; i < count; i++) {
@@ -43,11 +51,13 @@ public class MainActivity extends AppCompatActivity {
             filePathCallback = null;
         });
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "InlinedApi"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        requestRuntimePermissions();
 
         webView = findViewById(R.id.webview);
         WebSettings settings = webView.getSettings();
@@ -56,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setGeolocationEnabled(true);
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
@@ -68,6 +80,49 @@ public class MainActivity extends AppCompatActivity {
         webView.clearCache(true);
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    String[] requested = request.getResources();
+                    java.util.List<String> needed = new java.util.ArrayList<>();
+                    for (String r : requested) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
+                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                                != PackageManager.PERMISSION_GRANTED) {
+                                needed.add(Manifest.permission.CAMERA);
+                            }
+                        } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) {
+                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                                != PackageManager.PERMISSION_GRANTED) {
+                                needed.add(Manifest.permission.RECORD_AUDIO);
+                            }
+                        }
+                    }
+
+                    if (needed.isEmpty()) {
+                        request.grant(requested);
+                    } else {
+                        pendingWebPermissionRequest = request;
+                        ActivityCompat.requestPermissions(MainActivity.this,
+                            needed.toArray(new String[0]), REQ_RUNTIME_PERMS);
+                    }
+                });
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    callback.invoke(origin, true, false);
+                } else {
+                    ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
+                                     Manifest.permission.ACCESS_COARSE_LOCATION},
+                        REQ_RUNTIME_PERMS);
+                    callback.invoke(origin, false, false);
+                }
+            }
+
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams fileChooserParams) {
                 if (filePathCallback != null) {
@@ -84,8 +139,8 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("image/*");
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false);
+                if (intent.getType() == null) intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
 
                 try {
                     filePickerLauncher.launch(intent);
@@ -104,11 +159,63 @@ public class MainActivity extends AppCompatActivity {
             getWindow().setNavigationBarColor(brandColor);
             findViewById(android.R.id.content).setBackgroundColor(brandColor);
         } catch (Exception ignored) {
-            // keep defaults if invalid color
         }
 
         webView.loadUrl(addCacheBustParam("APP_URL"));
         hideSystemUI();
+    }
+
+    private void requestRuntimePermissions() {
+        java.util.List<String> perms = new java.util.ArrayList<>();
+        String[] base = new String[]{
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        };
+        for (String p : base) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                perms.add(p);
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            String[] media = new String[]{
+                "android.permission.READ_MEDIA_IMAGES",
+                "android.permission.READ_MEDIA_VIDEO",
+                "android.permission.READ_MEDIA_AUDIO",
+                "android.permission.POST_NOTIFICATIONS"
+            };
+            for (String p : media) {
+                if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                    perms.add(p);
+                }
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+                perms.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        if (!perms.isEmpty()) {
+            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_RUNTIME_PERMS);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_RUNTIME_PERMS && pendingWebPermissionRequest != null) {
+            boolean allGranted = true;
+            for (int r : grantResults) {
+                if (r != PackageManager.PERMISSION_GRANTED) { allGranted = false; break; }
+            }
+            if (allGranted) {
+                pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
+            } else {
+                pendingWebPermissionRequest.deny();
+            }
+            pendingWebPermissionRequest = null;
+        }
     }
 
     private String addCacheBustParam(String rawUrl) {
