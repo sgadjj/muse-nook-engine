@@ -15,24 +15,24 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 10%;
 
-    --primary: 145 65% 42%;
+    --primary: 330 81% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 92%;
-    --secondary-foreground: 220 25% 10%;
+    --secondary: 330 30% 94%;
+    --secondary-foreground: 330 40% 20%;
 
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 330 20% 95%;
+    --muted-foreground: 330 10% 45%;
 
-    --accent: 145 50% 94%;
-    --accent-foreground: 145 65% 25%;
+    --accent: 330 60% 95%;
+    --accent-foreground: 330 81% 35%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 220 15% 90%;
     --input: 220 15% 90%;
-    --ring: 145 65% 42%;
+    --ring: 330 81% 60%;
 
     --radius: 0.75rem;
 
@@ -48,11 +48,11 @@
     --font-arabic: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
     --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
-    --gradient-main: linear-gradient(135deg, hsl(145 65% 42%), hsl(170 60% 45%));
-    --gradient-dark: linear-gradient(135deg, hsl(220 25% 8%), hsl(220 30% 14%));
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 20% 98%));
-    --shadow-soft: 0 4px 20px -4px hsl(220 25% 10% / 0.08);
-    --shadow-glow: 0 0 30px -5px hsl(145 65% 42% / 0.25);
+    --gradient-main: linear-gradient(135deg, hsl(330 81% 60%), hsl(290 70% 60%));
+    --gradient-dark: linear-gradient(135deg, hsl(330 40% 12%), hsl(320 45% 18%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(330 30% 98%));
+    --shadow-soft: 0 4px 20px -4px hsl(330 40% 20% / 0.10);
+    --shadow-glow: 0 0 30px -5px hsl(330 81% 60% / 0.35);
   }
 
   .dark {
@@ -62,19 +62,19 @@
     --card-foreground: 210 40% 98%;
     --popover: 220 25% 10%;
     --popover-foreground: 210 40% 98%;
-    --primary: 145 65% 50%;
-    --primary-foreground: 220 25% 6%;
+    --primary: 330 81% 65%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 145 40% 15%;
-    --accent-foreground: 145 65% 70%;
+    --accent: 330 50% 18%;
+    --accent-foreground: 330 81% 80%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 145 65% 50%;
+    --ring: 330 81% 65%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
