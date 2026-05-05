@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
+import android.webkit.WebResourceRequest;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
@@ -134,6 +135,16 @@ public class MainActivity extends AppCompatActivity {
                     "};}" +
                     "}catch(e){}})();";
                 view.evaluateJavascript(js, null);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return handleSpecialUrl(request.getUrl().toString());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleSpecialUrl(url);
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -276,6 +287,35 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             } catch (Exception ignored) {}
         }
+    }
+
+    private boolean handleSpecialUrl(String url) {
+        if (url == null) return false;
+        try {
+            Uri uri = Uri.parse(url);
+            String scheme = uri.getScheme();
+            if ("tel".equalsIgnoreCase(scheme)) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CALL_PHONE}, REQ_RUNTIME_PERMS);
+                    startActivity(new Intent(Intent.ACTION_DIAL, uri));
+                } else {
+                    startActivity(new Intent(Intent.ACTION_CALL, uri));
+                }
+                return true;
+            }
+            if ("sms".equalsIgnoreCase(scheme) || "smsto".equalsIgnoreCase(scheme) || "mms".equalsIgnoreCase(scheme) || "mmsto".equalsIgnoreCase(scheme)) {
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, REQ_RUNTIME_PERMS);
+                }
+                startActivity(new Intent(Intent.ACTION_SENDTO, uri));
+                return true;
+            }
+            if ("mailto".equalsIgnoreCase(scheme) || "whatsapp".equalsIgnoreCase(scheme)) {
+                startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     @Override
