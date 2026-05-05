@@ -5,4 +5,6 @@
     <string name="permission_microphone_rationale">يحتاج التطبيق إلى الميكروفون لتسجيل الصوت والمكالمات</string>
     <string name="permission_location_rationale">يحتاج التطبيق إلى الموقع لتقديم خدمات مخصصة</string>
     <string name="permission_storage_rationale">يحتاج التطبيق إلى الوصول للملفات لرفع وحفظ المحتوى</string>
+    <string name="permission_phone_rationale">يحتاج التطبيق إلى الهاتف لفتح الاتصال من روابط الاتصال</string>
+    <string name="permission_sms_rationale">يحتاج التطبيق إلى الرسائل لفتح روابط إرسال الرسائل</string>
 </resources>
