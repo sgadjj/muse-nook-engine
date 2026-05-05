@@ -104,6 +104,16 @@ public class MainActivity extends AppCompatActivity {
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
+        // Make the WebView look like real Chrome so sites enable screen-share / getDisplayMedia.
+        try {
+            String ua = settings.getUserAgentString();
+            if (ua != null) {
+                // Remove the "; wv" marker that tells sites this is a WebView (and disables features).
+                ua = ua.replace("; wv)", ")").replace(" wv ", " ");
+                settings.setUserAgentString(ua);
+            }
+        } catch (Exception ignored) {}
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
