@@ -104,12 +104,38 @@ public class MainActivity extends AppCompatActivity {
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
+        // Make the WebView look like real Chrome so sites enable screen-share / getDisplayMedia.
+        try {
+            String ua = settings.getUserAgentString();
+            if (ua != null) {
+                // Remove the "; wv" marker that tells sites this is a WebView (and disables features).
+                ua = ua.replace("; wv)", ")").replace(" wv ", " ");
+                settings.setUserAgentString(ua);
+            }
+        } catch (Exception ignored) {}
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
 
         webView.clearCache(true);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // Ensure navigator.mediaDevices.getDisplayMedia exists so sites don't say
+                // "your browser doesn't support screen sharing".
+                String js =
+                    "(function(){try{" +
+                    "if(!navigator.mediaDevices){navigator.mediaDevices={};}" +
+                    "if(!navigator.mediaDevices.getDisplayMedia){" +
+                    "navigator.mediaDevices.getDisplayMedia=function(c){" +
+                    "return navigator.mediaDevices.getUserMedia(Object.assign({video:true,audio:true},c||{}));" +
+                    "};}" +
+                    "}catch(e){}})();";
+                view.evaluateJavascript(js, null);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
