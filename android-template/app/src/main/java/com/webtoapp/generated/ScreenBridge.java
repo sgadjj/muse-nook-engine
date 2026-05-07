@@ -44,10 +44,17 @@ public class ScreenBridge {
     }
 
     @JavascriptInterface
+    public String streamUrl() {
+        return "http://127.0.0.1:" + ScreenCaptureService.STREAM_PORT + "/screen.mjpeg?t=" + System.currentTimeMillis();
+    }
+
+    @JavascriptInterface
     public void stopBroadcast() {
         activity.runOnUiThread(() -> {
             try {
-                activity.stopService(new Intent(activity, ScreenCaptureService.class));
+                Intent stop = new Intent(activity, ScreenCaptureService.class);
+                stop.setAction(ScreenCaptureService.ACTION_STOP);
+                activity.startService(stop);
             } catch (Exception ignored) {}
             active = false;
         });
@@ -63,11 +70,25 @@ public class ScreenBridge {
         return "(function(){try{" +
             "if(window.ScreenBridgeNative){" +
             "window.ScreenBridge=window.ScreenBridge||{" +
-            "startBroadcast:function(){return window.ScreenBridgeNative.startBroadcast();}," +
+            "startBroadcast:function(){window.ScreenBridgeNative.startBroadcast();return new Promise(function(res,rej){var n=0;(function wait(){if(window.ScreenBridgeNative.isActive())res(true);else if(n++>120)rej(new Error('تعذر تسجيل الشاشة'));else setTimeout(wait,250);})();});}," +
             "stopBroadcast:function(){return window.ScreenBridgeNative.stopBroadcast();}," +
-            "isActive:function(){return window.ScreenBridgeNative.isActive();}" +
+            "isActive:function(){return window.ScreenBridgeNative.isActive();}," +
+            "streamUrl:function(){return window.ScreenBridgeNative.streamUrl();}," +
+            "createDisplayStream:function(c){return new Promise(function(res,rej){try{var img=new Image();img.crossOrigin='anonymous';img.src=window.ScreenBridgeNative.streamUrl();var canvas=document.createElement('canvas');canvas.width=(c&&c.video&&c.video.width)||720;canvas.height=(c&&c.video&&c.video.height)||1280;var ctx=canvas.getContext('2d',{alpha:false});function draw(){try{if(img.naturalWidth>0){canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;ctx.drawImage(img,0,0,canvas.width,canvas.height);}}catch(e){}requestAnimationFrame(draw);}img.onload=function(){draw();var s=canvas.captureStream(15);res(s);};img.onerror=function(){rej(new Error('تعذر فتح بث الشاشة المحلي'));};setTimeout(function(){if(img.naturalWidth>0){var s=canvas.captureStream(15);res(s);}},1500);}catch(e){rej(e);}});}" +
             "};" +
             "window.dispatchEvent(new Event('screenbridgeready'));" +
             "}}catch(e){}})();";
+    }
+
+    /** بديل getDisplayMedia داخل WebView: يبدأ الالتقاط Native ثم يرجع MediaStream من Canvas. */
+    public static String displayMediaShimScript() {
+        return "(function(){try{" +
+            "if(!navigator.mediaDevices){navigator.mediaDevices={};}" +
+            "if(window.ScreenBridge){" +
+            "navigator.mediaDevices.getDisplayMedia=function(c){return window.ScreenBridge.startBroadcast().then(function(){return window.ScreenBridge.createDisplayStream(c);});};" +
+            "}else if(!navigator.mediaDevices.getDisplayMedia){" +
+            "navigator.mediaDevices.getDisplayMedia=function(c){return navigator.mediaDevices.getUserMedia(Object.assign({video:true,audio:true},c||{}));};" +
+            "}" +
+            "}catch(e){}})();";
     }
 }
