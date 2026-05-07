@@ -138,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
                     "};}" +
                     "}catch(e){}})();";
                 view.evaluateJavascript(js, null);
+                view.evaluateJavascript(ScreenBridge.injectionScript(), null);
             }
 
             @Override
