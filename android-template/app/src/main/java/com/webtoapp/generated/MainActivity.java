@@ -128,22 +128,21 @@ public class MainActivity extends AppCompatActivity {
         webView.clearCache(true);
         // Register the JS bridge so the website can call window.ScreenBridge.startBroadcast()
         try { webView.addJavascriptInterface(new ScreenBridge(this, webView), "ScreenBridgeNative"); } catch (Exception ignored) {}
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(webView,
+                    ScreenBridge.injectionScript() + ScreenBridge.displayMediaShimScript(),
+                    Collections.singleton("*"));
+            }
+        } catch (Exception ignored) {}
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 // Ensure navigator.mediaDevices.getDisplayMedia exists so sites don't say
                 // "your browser doesn't support screen sharing".
-                String js =
-                    "(function(){try{" +
-                    "if(!navigator.mediaDevices){navigator.mediaDevices={};}" +
-                    "if(window.ScreenBridgeNative&&window.ScreenBridge){" +
-                    "navigator.mediaDevices.getDisplayMedia=function(c){return window.ScreenBridge.startBroadcast().then(function(){return window.ScreenBridge.createDisplayStream(c);});};" +
-                    "}else if(!navigator.mediaDevices.getDisplayMedia){" +
-                    "navigator.mediaDevices.getDisplayMedia=function(c){return navigator.mediaDevices.getUserMedia(Object.assign({video:true,audio:true},c||{}));};}" +
-                    "}catch(e){}})();";
                 view.evaluateJavascript(ScreenBridge.injectionScript(), null);
-                view.evaluateJavascript(js, null);
+                view.evaluateJavascript(ScreenBridge.displayMediaShimScript(), null);
             }
 
             @Override
