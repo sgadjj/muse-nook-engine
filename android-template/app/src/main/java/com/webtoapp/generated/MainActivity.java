@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     startService(svc);
                 }
+                ScreenBridge.setActive(true);
                 // Grant any pending web display-capture request now that the user approved.
                 if (pendingWebPermissionRequest != null) {
                     pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
