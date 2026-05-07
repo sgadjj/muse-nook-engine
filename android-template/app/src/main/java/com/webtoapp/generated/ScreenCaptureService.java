@@ -115,6 +115,12 @@ public class ScreenCaptureService extends Service {
 
             mediaProjection = manager.getMediaProjection(resultCode, resultData);
             if (mediaProjection == null) return;
+            mediaProjection.registerCallback(new MediaProjection.Callback() {
+                @Override
+                public void onStop() {
+                    stopSelf();
+                }
+            }, new Handler(getMainLooper()));
 
             DisplayMetrics metrics = getResources().getDisplayMetrics();
             int width = Math.max(360, Math.min(TARGET_WIDTH, metrics.widthPixels));
