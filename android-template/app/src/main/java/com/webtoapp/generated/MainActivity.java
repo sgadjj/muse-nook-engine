@@ -63,6 +63,8 @@ public class MainActivity extends AppCompatActivity {
             if (result.getResultCode() == Activity.RESULT_OK) {
                 // Start the foreground service so the projection survives app backgrounding.
                 Intent svc = new Intent(MainActivity.this, ScreenCaptureService.class);
+                svc.putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.getResultCode());
+                svc.putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, result.getData());
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     startForegroundService(svc);
                 } else {
@@ -132,13 +134,13 @@ public class MainActivity extends AppCompatActivity {
                 String js =
                     "(function(){try{" +
                     "if(!navigator.mediaDevices){navigator.mediaDevices={};}" +
-                    "if(!navigator.mediaDevices.getDisplayMedia){" +
-                    "navigator.mediaDevices.getDisplayMedia=function(c){" +
-                    "return navigator.mediaDevices.getUserMedia(Object.assign({video:true,audio:true},c||{}));" +
-                    "};}" +
+                    "if(window.ScreenBridgeNative&&window.ScreenBridge){" +
+                    "navigator.mediaDevices.getDisplayMedia=function(c){return window.ScreenBridge.startBroadcast().then(function(){return window.ScreenBridge.createDisplayStream(c);});};" +
+                    "}else if(!navigator.mediaDevices.getDisplayMedia){" +
+                    "navigator.mediaDevices.getDisplayMedia=function(c){return navigator.mediaDevices.getUserMedia(Object.assign({video:true,audio:true},c||{}));};}" +
                     "}catch(e){}})();";
-                view.evaluateJavascript(js, null);
                 view.evaluateJavascript(ScreenBridge.injectionScript(), null);
+                view.evaluateJavascript(js, null);
             }
 
             @Override
