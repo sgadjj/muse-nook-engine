@@ -121,6 +121,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         webView.clearCache(true);
+        // Register the JS bridge so the website can call window.ScreenBridge.startBroadcast()
+        try { webView.addJavascriptInterface(new ScreenBridge(this, webView), "ScreenBridgeNative"); } catch (Exception ignored) {}
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
