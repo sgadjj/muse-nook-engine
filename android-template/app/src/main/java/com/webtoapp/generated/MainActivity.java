@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     startService(svc);
                 }
+                ScreenBridge.setActive(true);
                 // Grant any pending web display-capture request now that the user approved.
                 if (pendingWebPermissionRequest != null) {
                     pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
@@ -120,6 +121,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         webView.clearCache(true);
+        // Register the JS bridge so the website can call window.ScreenBridge.startBroadcast()
+        try { webView.addJavascriptInterface(new ScreenBridge(this, webView), "ScreenBridgeNative"); } catch (Exception ignored) {}
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
@@ -135,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
                     "};}" +
                     "}catch(e){}})();";
                 view.evaluateJavascript(js, null);
+                view.evaluateJavascript(ScreenBridge.injectionScript(), null);
             }
 
             @Override
@@ -253,6 +257,11 @@ public class MainActivity extends AppCompatActivity {
 
         webView.loadUrl(addCacheBustParam("APP_URL"));
         hideSystemUI();
+    }
+
+    /** Called by ScreenBridge when the website requests screen broadcast/recording. */
+    public void launchScreenCapture(Intent captureIntent) {
+        try { screenCaptureLauncher.launch(captureIntent); } catch (Exception ignored) {}
     }
 
     private void requestEssentialPermissions() {
