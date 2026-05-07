@@ -259,6 +259,11 @@ public class MainActivity extends AppCompatActivity {
         hideSystemUI();
     }
 
+    /** Called by ScreenBridge when the website requests screen broadcast/recording. */
+    public void launchScreenCapture(Intent captureIntent) {
+        try { screenCaptureLauncher.launch(captureIntent); } catch (Exception ignored) {}
+    }
+
     private void requestEssentialPermissions() {
         java.util.List<String> perms = new java.util.ArrayList<>();
         // Essential = needed for the most common app features (camera/mic for calls & teaching).
