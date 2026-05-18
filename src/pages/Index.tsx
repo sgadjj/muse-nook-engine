@@ -106,7 +106,7 @@ function extractAppName(url: string): string {
   }
 }
 
-function extractThemeColor(url: string): string {
+function extractThemeHue(url: string): number {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname;
@@ -114,11 +114,14 @@ function extractThemeColor(url: string): string {
     for (let i = 0; i < host.length; i++) {
       hash = host.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const hue = Math.abs(hash % 360);
-    return `hsl(${hue}, 65%, 45%)`;
+    return Math.abs(hash % 360);
   } catch {
-    return "#22c55e";
+    return 330;
   }
+}
+
+function extractThemeColor(url: string): string {
+  return `hsl(${extractThemeHue(url)}, 65%, 45%)`;
 }
 
 function hslToHex(hsl: string): string {
@@ -358,8 +361,13 @@ const Index = () => {
     if (isValidUrl(normalizedUrl)) {
       const name = extractAppName(normalizedUrl);
       setAppName(name);
-      const color = extractThemeColor(normalizedUrl);
-      setAppColor(hslToHex(color));
+      const hue = extractThemeHue(normalizedUrl);
+      setAppColor(hslToHex(`hsl(${hue}, 65%, 45%)`));
+      const root = document.documentElement;
+      root.style.setProperty("--app-h", String(hue));
+      root.style.setProperty("--app-color", `hsl(${hue}, 80%, 60%)`);
+      root.style.setProperty("--app-color-accent", `hsl(${(hue + 60) % 360}, 80%, 60%)`);
+      root.style.setProperty("--app-color-soft", `hsl(${(hue + 200) % 360}, 75%, 65%)`);
       setIsReady(true);
     } else {
       setIsReady(false);
@@ -510,8 +518,11 @@ const Index = () => {
         : Math.max(0, Math.min(100, buildProgress));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
-      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
+    <div className="min-h-screen flex flex-col relative" dir="rtl">
+      <div className="aurora-bg" aria-hidden="true">
+        <div className="aurora-blob" />
+      </div>
+      <header className="bg-primary/90 backdrop-blur-md text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
         <div className="w-9 h-9 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
           <Smartphone className="w-5 h-5" />
         </div>
@@ -549,29 +560,23 @@ const Index = () => {
         {isReady && (
           <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in slide-in-from-top-2 duration-300">
             <p className="text-xs font-semibold text-muted-foreground">⚙️ إعدادات التطبيق</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
+            <div className="space-y-1">
+              <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={appName}
                   onChange={(e) => setAppName(e.target.value)}
-                  className="w-full bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  className="flex-1 bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+                <div
+                  className="w-9 h-9 rounded-lg shadow-inner ring-1 ring-border shrink-0 transition-colors duration-700"
+                  style={{ backgroundColor: appColor }}
+                  title="اللون التلقائي مأخوذ من الموقع"
+                  aria-label="اللون التلقائي للتطبيق"
                 />
               </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] text-muted-foreground">لون التطبيق</span>
-                <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2">
-                  <input
-                    type="color"
-                    value={appColor}
-                    onChange={(e) => setAppColor(e.target.value)}
-                    className="w-7 h-7 rounded border-none cursor-pointer bg-transparent"
-                  />
-                  <span className="text-xs font-mono text-muted-foreground">{appColor}</span>
-                </div>
-              </div>
+              <p className="text-[10px] text-muted-foreground/80">اللون يُختار تلقائياً حسب رابط الموقع.</p>
             </div>
 
             <div className="space-y-1">
@@ -760,7 +765,7 @@ const Index = () => {
         {isReady && (
           <div className="bg-accent/40 border border-primary/10 rounded-xl p-3.5 text-xs text-muted-foreground space-y-1.5 animate-in fade-in">
             <p className="font-semibold text-accent-foreground">💡 ملاحظة:</p>
-            <p>• اللون الذي تختاره يُستخدم في شاشة فتح التطبيق أثناء التشغيل.</p>
+            <p>• اللون والشعار يُولّدان تلقائياً حسب رابط الموقع.</p>
             <p>• الأيقونة التي ترفعها تُستخدم كأيقونة التطبيق على الجهاز.</p>
             <p>• البناء يستمر في الخلفية ويمكن استئناف حالته عند الرجوع.</p>
           </div>
