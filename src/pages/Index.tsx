@@ -765,7 +765,7 @@ const Index = () => {
         {isReady && (
           <div className="bg-accent/40 border border-primary/10 rounded-xl p-3.5 text-xs text-muted-foreground space-y-1.5 animate-in fade-in">
             <p className="font-semibold text-accent-foreground">💡 ملاحظة:</p>
-            <p>• اللون الذي تختاره يُستخدم في شاشة فتح التطبيق أثناء التشغيل.</p>
+            <p>• اللون والشعار يُولّدان تلقائياً حسب رابط الموقع.</p>
             <p>• الأيقونة التي ترفعها تُستخدم كأيقونة التطبيق على الجهاز.</p>
             <p>• البناء يستمر في الخلفية ويمكن استئناف حالته عند الرجوع.</p>
           </div>
