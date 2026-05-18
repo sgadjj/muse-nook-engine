@@ -560,29 +560,23 @@ const Index = () => {
         {isReady && (
           <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in slide-in-from-top-2 duration-300">
             <p className="text-xs font-semibold text-muted-foreground">⚙️ إعدادات التطبيق</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
+            <div className="space-y-1">
+              <span className="text-[11px] text-muted-foreground">اسم التطبيق</span>
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={appName}
                   onChange={(e) => setAppName(e.target.value)}
-                  className="w-full bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  className="flex-1 bg-secondary/60 text-foreground font-semibold text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+                <div
+                  className="w-9 h-9 rounded-lg shadow-inner ring-1 ring-border shrink-0 transition-colors duration-700"
+                  style={{ backgroundColor: appColor }}
+                  title="اللون التلقائي مأخوذ من الموقع"
+                  aria-label="اللون التلقائي للتطبيق"
                 />
               </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] text-muted-foreground">لون التطبيق</span>
-                <div className="flex items-center gap-2 bg-secondary/60 rounded-lg px-3 py-2">
-                  <input
-                    type="color"
-                    value={appColor}
-                    onChange={(e) => setAppColor(e.target.value)}
-                    className="w-7 h-7 rounded border-none cursor-pointer bg-transparent"
-                  />
-                  <span className="text-xs font-mono text-muted-foreground">{appColor}</span>
-                </div>
-              </div>
+              <p className="text-[10px] text-muted-foreground/80">اللون يُختار تلقائياً حسب رابط الموقع.</p>
             </div>
 
             <div className="space-y-1">
