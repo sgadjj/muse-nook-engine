@@ -106,7 +106,7 @@ function extractAppName(url: string): string {
   }
 }
 
-function extractThemeColor(url: string): string {
+function extractThemeHue(url: string): number {
   try {
     const parsed = new URL(url);
     const host = parsed.hostname;
@@ -114,11 +114,14 @@ function extractThemeColor(url: string): string {
     for (let i = 0; i < host.length; i++) {
       hash = host.charCodeAt(i) + ((hash << 5) - hash);
     }
-    const hue = Math.abs(hash % 360);
-    return `hsl(${hue}, 65%, 45%)`;
+    return Math.abs(hash % 360);
   } catch {
-    return "#22c55e";
+    return 330;
   }
+}
+
+function extractThemeColor(url: string): string {
+  return `hsl(${extractThemeHue(url)}, 65%, 45%)`;
 }
 
 function hslToHex(hsl: string): string {
