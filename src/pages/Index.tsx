@@ -361,8 +361,13 @@ const Index = () => {
     if (isValidUrl(normalizedUrl)) {
       const name = extractAppName(normalizedUrl);
       setAppName(name);
-      const color = extractThemeColor(normalizedUrl);
-      setAppColor(hslToHex(color));
+      const hue = extractThemeHue(normalizedUrl);
+      setAppColor(hslToHex(`hsl(${hue}, 65%, 45%)`));
+      const root = document.documentElement;
+      root.style.setProperty("--app-h", String(hue));
+      root.style.setProperty("--app-color", `hsl(${hue}, 80%, 60%)`);
+      root.style.setProperty("--app-color-accent", `hsl(${(hue + 60) % 360}, 80%, 60%)`);
+      root.style.setProperty("--app-color-soft", `hsl(${(hue + 200) % 360}, 75%, 65%)`);
       setIsReady(true);
     } else {
       setIsReady(false);
