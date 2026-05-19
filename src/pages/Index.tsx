@@ -305,6 +305,14 @@ const Index = () => {
         setBuildProgress(100);
         setBuildCompletedAt((prev) => prev ?? Date.now());
         setNativeBuildStatus("done");
+        addToHistory({
+          id: runId,
+          name: fileLabel,
+          url: normalizedUrl,
+          color: appColor,
+          icon: customIcon,
+          completedAt: Date.now(),
+        });
         toast.success("✅ اكتمل البناء وتم تنزيل التطبيق مباشرة");
       } catch (error) {
         console.error("Download error:", error);
