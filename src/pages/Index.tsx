@@ -195,6 +195,35 @@ const Index = () => {
   const [buildCompletedAt, setBuildCompletedAt] = useState<number | null>(null);
   const [buildTotalSteps, setBuildTotalSteps] = useState<number | null>(null);
   const [buildCompletedSteps, setBuildCompletedSteps] = useState<number | null>(null);
+  const [buildHistory, setBuildHistory] = useState<BuildHistoryItem[]>(() => {
+    try {
+      const raw = localStorage.getItem(BUILD_HISTORY_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as BuildHistoryItem[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const addToHistory = useCallback((item: BuildHistoryItem) => {
+    setBuildHistory((prev) => {
+      const filtered = prev.filter((x) => x.id !== item.id);
+      const next = [item, ...filtered].slice(0, 20);
+      try {
+        localStorage.setItem(BUILD_HISTORY_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const removeFromHistory = useCallback((id: string) => {
+    setBuildHistory((prev) => {
+      const next = prev.filter((x) => x.id !== id);
+      try {
+        localStorage.setItem(BUILD_HISTORY_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const isBuildInProgress =
     nativeBuildStatus === "triggering" ||
