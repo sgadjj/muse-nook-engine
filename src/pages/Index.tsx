@@ -42,6 +42,17 @@ type PersistedBuildSession = {
 };
 
 const BUILD_SESSION_STORAGE_KEY = "webtoapp-native-build-session-v1";
+const BUILD_HISTORY_STORAGE_KEY = "webtoapp-native-build-history-v1";
+const ESTIMATED_BUILD_SECONDS = 180;
+
+type BuildHistoryItem = {
+  id: string;
+  name: string;
+  url: string;
+  color: string;
+  icon: string | null;
+  completedAt: number;
+};
 
 function toBrandName(raw: string): string {
   const cleaned = raw
