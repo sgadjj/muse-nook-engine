@@ -323,7 +323,7 @@ const Index = () => {
         downloadingRef.current = false;
       }
     },
-    [buildStartTime, clearBuildSession, persistBuildSession, stopPolling]
+    [addToHistory, appColor, buildStartTime, clearBuildSession, customIcon, normalizedUrl, persistBuildSession, stopPolling]
   );
 
   const startPollingBuild = useCallback(
