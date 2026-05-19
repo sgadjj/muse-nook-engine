@@ -560,12 +560,15 @@ const Index = () => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
+  // Smooth time-based progress: grows up to 95% based on elapsed time, never goes backwards,
+  // and is combined with the server-reported progress so the bar always advances.
+  const timeBasedProgress = Math.min(95, Math.round((buildElapsed / ESTIMATED_BUILD_SECONDS) * 95));
   const progress =
     nativeBuildStatus === "done"
       ? 100
       : nativeBuildStatus === "downloading"
-        ? 99
-        : Math.max(0, Math.min(100, buildProgress));
+        ? Math.max(buildProgress, 97)
+        : Math.max(0, Math.min(96, Math.max(buildProgress, timeBasedProgress)));
 
   return (
     <div className="min-h-screen flex flex-col relative" dir="rtl">
