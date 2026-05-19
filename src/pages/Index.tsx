@@ -413,11 +413,6 @@ const Index = () => {
       setAppName(name);
       const hue = extractThemeHue(normalizedUrl);
       setAppColor(hslToHex(`hsl(${hue}, 65%, 45%)`));
-      const root = document.documentElement;
-      root.style.setProperty("--app-h", String(hue));
-      root.style.setProperty("--app-color", `hsl(${hue}, 80%, 60%)`);
-      root.style.setProperty("--app-color-accent", `hsl(${(hue + 60) % 360}, 80%, 60%)`);
-      root.style.setProperty("--app-color-soft", `hsl(${(hue + 200) % 360}, 75%, 65%)`);
       setIsReady(true);
     } else {
       setIsReady(false);
@@ -571,11 +566,8 @@ const Index = () => {
         : Math.max(0, Math.min(96, Math.max(buildProgress, timeBasedProgress)));
 
   return (
-    <div className="min-h-screen flex flex-col relative" dir="rtl">
-      <div className="aurora-bg" aria-hidden="true">
-        <div className="aurora-blob" />
-      </div>
-      <header className="bg-primary/90 backdrop-blur-md text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
+    <div className="min-h-screen flex flex-col bg-background" dir="rtl">
+      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
         <div className="w-9 h-9 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
           <Smartphone className="w-5 h-5" />
         </div>
