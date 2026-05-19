@@ -164,11 +164,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         try {
-            int brandColor = Color.parseColor("APP_COLOR");
-            webView.setBackgroundColor(brandColor);
-            getWindow().setStatusBarColor(brandColor);
-            getWindow().setNavigationBarColor(brandColor);
-            findViewById(android.R.id.content).setBackgroundColor(brandColor);
+            int black = Color.BLACK;
+            int white = Color.WHITE;
+            webView.setBackgroundColor(white);
+            getWindow().setStatusBarColor(black);
+            getWindow().setNavigationBarColor(black);
+            findViewById(android.R.id.content).setBackgroundColor(white);
         } catch (Exception ignored) {
         }
 
