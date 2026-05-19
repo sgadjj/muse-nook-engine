@@ -12,6 +12,8 @@ import {
   Timer,
   Download,
   Eye,
+  History,
+  Trash2,
 } from "lucide-react";
 
 import { toast } from "sonner";
