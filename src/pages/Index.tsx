@@ -566,11 +566,8 @@ const Index = () => {
         : Math.max(0, Math.min(96, Math.max(buildProgress, timeBasedProgress)));
 
   return (
-    <div className="min-h-screen flex flex-col relative" dir="rtl">
-      <div className="aurora-bg" aria-hidden="true">
-        <div className="aurora-blob" />
-      </div>
-      <header className="bg-primary/90 backdrop-blur-md text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
+    <div className="min-h-screen flex flex-col bg-background" dir="rtl">
+      <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-md sticky top-0 z-30">
         <div className="w-9 h-9 rounded-xl bg-primary-foreground/20 flex items-center justify-center">
           <Smartphone className="w-5 h-5" />
         </div>
