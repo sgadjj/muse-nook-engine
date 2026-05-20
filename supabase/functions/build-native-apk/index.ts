@@ -19,8 +19,26 @@ function getGitHubHeaders(token: string) {
   };
 }
 
+function normalizeGitHubRepo(configuredRepo: string) {
+  const trimmed = configuredRepo.trim();
+  const sshMatch = trimmed.match(/^git@github\.com:([^/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
+  if (sshMatch) return `${sshMatch[1]}/${sshMatch[2]}`;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (url.hostname.toLowerCase() === "github.com") {
+        const [owner, repo] = url.pathname.split("/").filter(Boolean);
+        if (owner && repo) return `${owner}/${repo.replace(/\.git$/i, "")}`;
+      }
+    } catch { /* Fall through to plain owner/repo parsing */ }
+  }
+
+  return trimmed.replace(/^\/+|\/+$/g, "").replace(/\.git$/i, "");
+}
+
 async function resolveGitHubRepo(configuredRepo: string, token: string) {
-  const repo = configuredRepo.trim();
+  const repo = normalizeGitHubRepo(configuredRepo);
   if (repo.includes("/")) return { repo, inferred: false };
   const userResp = await fetch(`${GITHUB_API}/user`, { headers: getGitHubHeaders(token) });
   if (!userResp.ok) throw new Error(`Failed to resolve repo owner: ${await userResp.text()}`);
