@@ -339,6 +339,16 @@ serve(async (req) => {
       const repoData = await repoResp.json();
       const defaultBranch = repoData.default_branch || "main";
 
+      const workflowState = await ensureBuildWorkflow(resolvedRepo, defaultBranch, githubToken);
+      if (!workflowState.ready) {
+        return new Response(JSON.stringify({
+          error: "APK build workflow is missing or inaccessible",
+          details: workflowState.details,
+          hint: "Make sure .github/workflows/build-apk.yml exists on the repository default branch and the GitHub token has Actions/workflow permission.",
+        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (workflowState.created) await new Promise((r) => setTimeout(r, 3000));
+
       let hasCustomIcon = false;
       if (customIcon && typeof customIcon === "string" && customIcon.length > 100) {
         console.log("Uploading custom icon to repo...");
@@ -346,21 +356,20 @@ serve(async (req) => {
         if (hasCustomIcon) await new Promise((r) => setTimeout(r, 2000));
       }
 
-      const dispatchResp = await fetch(
-        `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
-        {
-          method: "POST",
-          headers: { ...getGitHubHeaders(githubToken), "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ref: defaultBranch,
-            inputs: { app_url: appUrl, app_name: appName, app_color: appColor || "#22c55e", package_id: safePackageId },
-          }),
-        }
+      const dispatchResp = await dispatchBuildWorkflow(
+        resolvedRepo,
+        defaultBranch,
+        githubToken,
+        { app_url: appUrl, app_name: appName, app_color: appColor || "#22c55e", package_id: safePackageId }
       );
 
       if (!dispatchResp.ok) {
         const errText = await dispatchResp.text();
-        return new Response(JSON.stringify({ error: "Failed to trigger build", details: errText }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({
+          error: "Failed to trigger build",
+          details: errText,
+          hint: "GitHub could not dispatch .github/workflows/build-apk.yml. Verify Actions are enabled for the repository and the token can run workflows.",
+        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       await new Promise((r) => setTimeout(r, 3000));
@@ -369,7 +378,7 @@ serve(async (req) => {
       for (const status of ["queued", ""]) {
         const q = status ? `&status=${status}` : "";
         const runsResp = await fetch(
-          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${BUILD_WORKFLOW_FILE}/runs?per_page=1${q}`,
           { headers: getGitHubHeaders(githubToken) }
         );
         if (runsResp.ok) {
