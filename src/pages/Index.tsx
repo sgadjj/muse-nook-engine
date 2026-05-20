@@ -556,6 +556,11 @@ const Index = () => {
     await downloadBuiltApk(activeRunId, appName || "app");
   };
 
+  const previewZoomPercent = Math.round(previewScale * 100);
+  const previewScaleOptions = [0.5, 0.75, 0.85, 1];
+  const decreasePreviewScale = () => setPreviewScale((current) => Math.max(0.5, Number((current - 0.05).toFixed(2))));
+  const increasePreviewScale = () => setPreviewScale((current) => Math.min(1, Number((current + 0.05).toFixed(2))));
+
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   // Smooth time-based progress: grows up to 95% based on elapsed time, never goes backwards,
