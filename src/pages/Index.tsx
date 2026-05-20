@@ -14,6 +14,8 @@ import {
   Eye,
   History,
   Trash2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -180,6 +182,7 @@ const Index = () => {
 
   const [isReady, setIsReady] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewScale, setPreviewScale] = useState(0.85);
 
   const [customIcon, setCustomIcon] = useState<string | null>(null);
   const iconInputRef = useRef<HTMLInputElement>(null);
