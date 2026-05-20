@@ -71,9 +71,11 @@ public class MainActivity extends AppCompatActivity {
         settings.setGeolocationEnabled(true);
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
-        settings.setDisplayZoomControls(false);
+        settings.setDisplayZoomControls(true);
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
+        settings.setTextZoom(100);
+        webView.setInitialScale(1);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
