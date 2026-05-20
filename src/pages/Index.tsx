@@ -788,10 +788,53 @@ const Index = () => {
 
         {isReady && showPreview && (
           <div className="bg-card rounded-2xl border border-border p-4 shadow-soft space-y-3 animate-in fade-in">
-            <p className="text-xs font-semibold text-muted-foreground">📱 معاينة التطبيق (بدون زوم)</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold text-muted-foreground flex-1">📱 معاينة التطبيق</p>
+              <div className="flex items-center gap-1 rounded-xl bg-secondary/60 p-1">
+                <button
+                  type="button"
+                  onClick={decreasePreviewScale}
+                  disabled={previewScale <= 0.5}
+                  className="w-8 h-8 rounded-lg text-secondary-foreground hover:bg-card disabled:opacity-40 transition-colors flex items-center justify-center"
+                  aria-label="تصغير المعاينة"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="min-w-12 text-center text-xs font-mono font-semibold text-foreground">{previewZoomPercent}%</span>
+                <button
+                  type="button"
+                  onClick={increasePreviewScale}
+                  disabled={previewScale >= 1}
+                  className="w-8 h-8 rounded-lg text-secondary-foreground hover:bg-card disabled:opacity-40 transition-colors flex items-center justify-center"
+                  aria-label="تكبير المعاينة"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-            <div className="flex justify-center overflow-x-auto">
-              <div className="relative shrink-0 w-[320px] h-[568px]">
+            <div className="grid grid-cols-4 gap-1 rounded-xl bg-secondary/60 p-1">
+              {previewScaleOptions.map((scale) => (
+                <button
+                  key={scale}
+                  type="button"
+                  onClick={() => setPreviewScale(scale)}
+                  className={`h-8 rounded-lg text-xs font-mono font-semibold transition-colors ${
+                    previewScale === scale
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-secondary-foreground hover:bg-card"
+                  }`}
+                >
+                  {Math.round(scale * 100)}%
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-center overflow-auto max-h-[78vh] rounded-xl bg-secondary/30 p-2">
+              <div
+                className="relative shrink-0 w-[320px] h-[568px] origin-top transition-transform duration-200"
+                style={{ transform: `scale(${previewScale})`, marginBottom: `${568 * (previewScale - 1)}px` }}
+              >
                 <div className="w-full h-full rounded-[2.5rem] border-[6px] border-foreground/80 bg-foreground overflow-hidden shadow-xl relative">
                   <div
                     className="h-7 px-3 flex items-center justify-between text-[10px] font-semibold text-primary-foreground relative z-10"
