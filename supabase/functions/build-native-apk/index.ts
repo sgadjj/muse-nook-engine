@@ -65,6 +65,52 @@ async function uploadCustomIcon(base64Data: string, resolvedRepo: string, branch
   return true;
 }
 
+async function ensureBuildWorkflow(resolvedRepo: string, branch: string, token: string) {
+  const apiUrl = `${GITHUB_API}/repos/${resolvedRepo}/contents/${BUILD_WORKFLOW_PATH}`;
+  const existingResp = await fetch(`${apiUrl}?ref=${branch}`, { headers: getGitHubHeaders(token) });
+  if (existingResp.ok) return { ready: true, created: false };
+
+  if (existingResp.status !== 404) {
+    return { ready: false, created: false, status: existingResp.status, details: await existingResp.text() };
+  }
+
+  const createResp = await fetch(apiUrl, {
+    method: "PUT",
+    headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "chore: add APK build workflow",
+      content: EMBEDDED_BUILD_WORKFLOW_BASE64,
+      branch,
+    }),
+  });
+
+  if (!createResp.ok) {
+    return { ready: false, created: false, status: createResp.status, details: await createResp.text() };
+  }
+
+  console.log("Build workflow uploaded successfully");
+  return { ready: true, created: true };
+}
+
+async function dispatchBuildWorkflow(resolvedRepo: string, branch: string, token: string, inputs: Record<string, string>) {
+  const dispatchResp = await fetch(
+    `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${BUILD_WORKFLOW_FILE}/dispatches`,
+    {
+      method: "POST",
+      headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: branch, inputs }),
+    }
+  );
+
+  if (dispatchResp.status !== 404) return dispatchResp;
+
+  return fetch(`${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${encodeURIComponent(BUILD_WORKFLOW_PATH)}/dispatches`, {
+    method: "POST",
+    headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: branch, inputs }),
+  });
+}
+
 async function fetchRunProgress(runId: string, resolvedRepo: string, githubToken: string) {
   try {
     const jobsResp = await fetch(
