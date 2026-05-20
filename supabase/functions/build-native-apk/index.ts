@@ -7,6 +7,9 @@ const corsHeaders = {
 };
 
 const GITHUB_API = "https://api.github.com";
+const BUILD_WORKFLOW_FILE = "build-apk.yml";
+const BUILD_WORKFLOW_PATH = `.github/workflows/${BUILD_WORKFLOW_FILE}`;
+const EMBEDDED_BUILD_WORKFLOW_BASE64 = "bmFtZTogQnVpbGQgTmF0aXZlIFdlYlZpZXcgQVBLCgpvbjoKICB3b3JrZmxvd19kaXNwYXRjaDoKICAgIGlucHV0czoKICAgICAgYXBwX3VybDoKICAgICAgICBkZXNjcmlwdGlvbjogJ1RhcmdldCB3ZWJzaXRlIFVSTCcKICAgICAgICByZXF1aXJlZDogdHJ1ZQogICAgICAgIHR5cGU6IHN0cmluZwogICAgICBhcHBfbmFtZToKICAgICAgICBkZXNjcmlwdGlvbjogJ0FwcCBkaXNwbGF5IG5hbWUnCiAgICAgICAgcmVxdWlyZWQ6IHRydWUKICAgICAgICBkZWZhdWx0OiAnTXlBcHAnCiAgICAgICAgdHlwZTogc3RyaW5nCiAgICAgIGFwcF9jb2xvcjoKICAgICAgICBkZXNjcmlwdGlvbjogJ1RoZW1lIGNvbG9yIGhleCAoZS5nLiAjMjJjNTVlKScKICAgICAgICByZXF1aXJlZDogdHJ1ZQogICAgICAgIGRlZmF1bHQ6ICcjMjJjNTVlJwogICAgICAgIHR5cGU6IHN0cmluZwogICAgICBwYWNrYWdlX2lkOgogICAgICAgIGRlc2NyaXB0aW9uOiAnQW5kcm9pZCBwYWNrYWdlIElEJwogICAgICAgIHJlcXVpcmVkOiB0cnVlCiAgICAgICAgZGVmYXVsdDogJ2NvbS53ZWJ0b2FwcC5hcHAnCiAgICAgICAgdHlwZTogc3RyaW5nCgpqb2JzOgogIGJ1aWxkOgogICAgcnVucy1vbjogdWJ1bnR1LWxhdGVzdAogICAgdGltZW91dC1taW51dGVzOiAyMAoKICAgIHN0ZXBzOgogICAgICAtIG5hbWU6IENoZWNrb3V0CiAgICAgICAgdXNlczogYWN0aW9ucy9jaGVja291dEB2NAoKICAgICAgLSBuYW1lOiBTZXQgdXAgSkRLIDE3CiAgICAgICAgdXNlczogYWN0aW9ucy9zZXR1cC1qYXZhQHY0CiAgICAgICAgd2l0aDoKICAgICAgICAgIGphdmEtdmVyc2lvbjogJzE3JwogICAgICAgICAgZGlzdHJpYnV0aW9uOiAndGVtdXJpbicKICAgICAgICAgIGNhY2hlOiAnZ3JhZGxlJwoKICAgICAgLSBuYW1lOiBTZXR1cCBHcmFkbGUKICAgICAgICB1c2VzOiBncmFkbGUvYWN0aW9ucy9zZXR1cC1ncmFkbGVAdjQKICAgICAgICB3aXRoOgogICAgICAgICAgZ3JhZGxlLXZlcnNpb246IDguNQogICAgICAgICAgY2FjaGUtcmVhZC1vbmx5OiBmYWxzZQoKICAgICAgLSBuYW1lOiBDb25maWd1cmUgYXBwIHBhcmFtZXRlcnMKICAgICAgICB3b3JraW5nLWRpcmVjdG9yeTogYW5kcm9pZC10ZW1wbGF0ZQogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1lCiAgICAgICAgICBBUFBfVVJMPSIke3sgaW5wdXRzLmFwcF91cmwgfX0iCiAgICAgICAgICBBUFBfTkFNRT0iJHt7IGlucHV0cy5hcHBfbmFtZSB9fSIKICAgICAgICAgIEFQUF9DT0xPUj0iJHt7IGlucHV0cy5hcHBfY29sb3IgfX0iCiAgICAgICAgICBQQUNLQUdFX0lEPSIke3sgaW5wdXRzLnBhY2thZ2VfaWQgfX0iCiAgICAgICAgICAKICAgICAgICAgICMgRXNjYXBlIHNwZWNpYWwgY2hhcmFjdGVycyBmb3Igc2VkCiAgICAgICAgICBBUFBfVVJMX0VTQz0kKHByaW50ZiAnJXNcbicgIiRBUFBfVVJMIiB8IHNlZCAncy9bJi9cXS9cXCYvZycpCiAgICAgICAgICBBUFBfTkFNRV9FU0M9JChwcmludGYgJyVzXG4nICIkQVBQX05BTUUiIHwgc2VkICdzL1smL1xdL1xcJi9nJykKICAgICAgICAgIEFQUF9DT0xPUl9FU0M9JChwcmludGYgJyVzXG4nICIkQVBQX0NPTE9SIiB8IHNlZCAncy9bJi9cXS9cXCYvZycpCiAgICAgICAgICBQQUNLQUdFX0lEX0VTQz0kKHByaW50ZiAnJXNcbicgIiRQQUNLQUdFX0lEIiB8IHNlZCAncy9bJi9cXS9cXCYvZycpCiAgICAgICAgICAKICAgICAgICAgIGZpbmQgLiAtdHlwZSBmIFwoIC1uYW1lICIqLmphdmEiIC1vIC1uYW1lICIqLnhtbCIgLW8gLW5hbWUgIiouZ3JhZGxlIiBcKSAtZXhlYyBzZWQgLWkgInN8QVBQX1VSTHwke0FQUF9VUkxfRVNDfXxnIiB7fSArCiAgICAgICAgICBmaW5kIC4gLXR5cGUgZiBcKCAtbmFtZSAiKi5qYXZhIiAtbyAtbmFtZSAiKi54bWwiIC1vIC1uYW1lICIqLmdyYWRsZSIgXCkgLWV4ZWMgc2VkIC1pICJzfEFQUF9OQU1FfCR7QVBQX05BTUVfRVNDfXxnIiB7fSArCiAgICAgICAgICBmaW5kIC4gLXR5cGUgZiBcKCAtbmFtZSAiKi5qYXZhIiAtbyAtbmFtZSAiKi54bWwiIC1vIC1uYW1lICIqLmdyYWRsZSIgXCkgLWV4ZWMgc2VkIC1pICJzfEFQUF9DT0xPUnwke0FQUF9DT0xPUl9FU0N9fGciIHt9ICsKICAgICAgICAgIGZpbmQgLiAtdHlwZSBmIFwoIC1uYW1lICIqLmphdmEiIC1vIC1uYW1lICIqLnhtbCIgLW8gLW5hbWUgIiouZ3JhZGxlIiBcKSAtZXhlYyBzZWQgLWkgInN8QVBQX1BBQ0tBR0VfSUR8JHtQQUNLQUdFX0lEX0VTQ318ZyIge30gKwoKICAgICAgLSBuYW1lOiBHZW5lcmF0ZSBhcHAgaWNvbnMKICAgICAgICB3b3JraW5nLWRpcmVjdG9yeTogYW5kcm9pZC10ZW1wbGF0ZQogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1lCiAgICAgICAgICBzdWRvIGFwdC1nZXQgdXBkYXRlIC1xcSAmJiBzdWRvIGFwdC1nZXQgaW5zdGFsbCAteSAtcXEgaW1hZ2VtYWdpY2sKICAgICAgICAgIAogICAgICAgICAgIyBDaGVjayBpZiBjdXN0b20gaWNvbiB3YXMgdXBsb2FkZWQgdG8gdGhlIHJlcG8KICAgICAgICAgIGlmIFsgLWYgImN1c3RvbV9pY29uLnBuZyIgXTsgdGhlbgogICAgICAgICAgICBlY2hvICLinIUgVXNpbmcgY3VzdG9tIGljb24gZnJvbSBjdXN0b21faWNvbi5wbmciCiAgICAgICAgICAgIGZvciBkZW5zaXR5IGluIG1kcGkgaGRwaSB4aGRwaSB4eGhkcGkgeHh4aGRwaTsgZG8KICAgICAgICAgICAgICBjYXNlICRkZW5zaXR5IGluCiAgICAgICAgICAgICAgICBtZHBpKSBTSVpFPTQ4IDs7CiAgICAgICAgICAgICAgICBoZHBpKSBTSVpFPTcyIDs7CiAgICAgICAgICAgICAgICB4aGRwaSkgU0laRT05NiA7OwogICAgICAgICAgICAgICAgeHhoZHBpKSBTSVpFPTE0NCA7OwogICAgICAgICAgICAgICAgeHh4aGRwaSkgU0laRT0xOTIgOzsKICAgICAgICAgICAgICBlc2FjCiAgICAgICAgICAgICAgRElSPSJhcHAvc3JjL21haW4vcmVzL21pcG1hcC0ke2RlbnNpdHl9IgogICAgICAgICAgICAgIG1rZGlyIC1wICIkRElSIgogICAgICAgICAgICAgIGNvbnZlcnQgImN1c3RvbV9pY29uLnBuZyIgLXJlc2l6ZSAiJHtTSVpFfXgke1NJWkV9ISIgIiR7RElSfS9pY19sYXVuY2hlci5wbmciCiAgICAgICAgICAgIGRvbmUKICAgICAgICAgIGVsc2UKICAgICAgICAgICAgZWNobyAi4oS577iPIE5vIGN1c3RvbSBpY29uIGZvdW5kLCBnZW5lcmF0aW5nIGxldHRlci1iYXNlZCBpY29uIgogICAgICAgICAgICBDT0xPUj0iJHt7IGlucHV0cy5hcHBfY29sb3IgfX0iCiAgICAgICAgICAgIE5BTUU9IiR7eyBpbnB1dHMuYXBwX25hbWUgfX0iCiAgICAgICAgICAgIExFVFRFUj0kKGVjaG8gIiROQU1FIiB8IGhlYWQgLWMgMSB8IHRyICdbOmxvd2VyOl0nICdbOnVwcGVyOl0nKQogICAgICAgICAgICAKICAgICAgICAgICAgaWYgWyAteiAiJExFVFRFUiIgXSB8fCAhIGVjaG8gIiRMRVRURVIiIHwgZ3JlcCAtcUUgJ15bQS1aYS16MC05XSQnOyB0aGVuCiAgICAgICAgICAgICAgTEVUVEVSPSJBIgogICAgICAgICAgICBmaQoKICAgICAgICAgICAgZm9yIGRlbnNpdHkgaW4gbWRwaSBoZHBpIHhoZHBpIHh4aGRwaSB4eHhoZHBpOyBkbwogICAgICAgICAgICAgIGNhc2UgJGRlbnNpdHkgaW4KICAgICAgICAgICAgICAgIG1kcGkpIFNJWkU9NDggOzsKICAgICAgICAgICAgICAgIGhkcGkpIFNJWkU9NzIgOzsKICAgICAgICAgICAgICAgIHhoZHBpKSBTSVpFPTk2IDs7CiAgICAgICAgICAgICAgICB4eGhkcGkpIFNJWkU9MTQ0IDs7CiAgICAgICAgICAgICAgICB4eHhoZHBpKSBTSVpFPTE5MiA7OwogICAgICAgICAgICAgIGVzYWMKICAgICAgICAgICAgICBESVI9ImFwcC9zcmMvbWFpbi9yZXMvbWlwbWFwLSR7ZGVuc2l0eX0iCiAgICAgICAgICAgICAgbWtkaXIgLXAgIiRESVIiCiAgICAgICAgICAgICAgY29udmVydCAtc2l6ZSAiJHtTSVpFfXgke1NJWkV9IiB4YzoiJHtDT0xPUn0iIFwKICAgICAgICAgICAgICAgIC1ncmF2aXR5IGNlbnRlciAtcG9pbnRzaXplICQoKFNJWkUgKiA0NSAvIDEwMCkpIFwKICAgICAgICAgICAgICAgIC1maWxsIHdoaXRlIC1mb250IERlamFWdS1TYW5zLUJvbGQgLWFubm90YXRlIDAgIiR7TEVUVEVSfSIgXAogICAgICAgICAgICAgICAgIiR7RElSfS9pY19sYXVuY2hlci5wbmciCiAgICAgICAgICAgIGRvbmUKICAgICAgICAgIGZpCgogICAgICAtIG5hbWU6IEJ1aWxkIGRlYnVnIEFQSwogICAgICAgIHdvcmtpbmctZGlyZWN0b3J5OiBhbmRyb2lkLXRlbXBsYXRlCiAgICAgICAgcnVuOiB8CiAgICAgICAgICBzZXQgLWUKICAgICAgICAgIGdyYWRsZSBhc3NlbWJsZURlYnVnIC0tbm8tZGFlbW9uIC0tc3RhY2t0cmFjZSAtLWluZm8KCiAgICAgIC0gbmFtZTogUmVuYW1lIGFuZCBwcmVwYXJlIEFQSwogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1lCiAgICAgICAgICBBUFBfTkFNRT0iJHt7IGlucHV0cy5hcHBfbmFtZSB9fSIKICAgICAgICAgIFNBRkVfTkFNRT0kKGVjaG8gIiRBUFBfTkFNRSIgfCB0ciAnICcgJy0nIHwgdHIgLWNkICdbOmFsbnVtOl0tJyB8IGhlYWQgLWMgNTApCiAgICAgICAgICBbIC16ICIkU0FGRV9OQU1FIiBdICYmIFNBRkVfTkFNRT0iYXBwIgogICAgICAgICAgQVBLX1BBVEg9JChmaW5kIGFuZHJvaWQtdGVtcGxhdGUvYXBwL2J1aWxkL291dHB1dHMvYXBrL2RlYnVnIC1uYW1lICIqLmFwayIgfCBoZWFkIC0xKQogICAgICAgICAgaWYgWyAteiAiJEFQS19QQVRIIiBdOyB0aGVuCiAgICAgICAgICAgIGVjaG8gIkVSUk9SOiBBUEsgbm90IGZvdW5kISIKICAgICAgICAgICAgZXhpdCAxCiAgICAgICAgICBmaQogICAgICAgICAgY3AgIiRBUEtfUEFUSCIgImFuZHJvaWQtdGVtcGxhdGUvJHtTQUZFX05BTUV9LmFwayIKICAgICAgICAgIGVjaG8gIkFQS19GSUxFPSR7U0FGRV9OQU1FfS5hcGsiID4+ICRHSVRIVUJfRU5WCgogICAgICAtIG5hbWU6IFVwbG9hZCBBUEsgYXJ0aWZhY3QKICAgICAgICB1c2VzOiBhY3Rpb25zL3VwbG9hZC1hcnRpZmFjdEB2NAogICAgICAgIHdpdGg6CiAgICAgICAgICBuYW1lOiBuYXRpdmUtYXBrCiAgICAgICAgICBwYXRoOiBhbmRyb2lkLXRlbXBsYXRlLyR7eyBlbnYuQVBLX0ZJTEUgfX0KICAgICAgICAgIHJldGVudGlvbi1kYXlzOiA3Cg==";
 
 function getGitHubHeaders(token: string) {
   return {
@@ -60,6 +63,52 @@ async function uploadCustomIcon(base64Data: string, resolvedRepo: string, branch
   }
   console.log("Custom icon uploaded successfully");
   return true;
+}
+
+async function ensureBuildWorkflow(resolvedRepo: string, branch: string, token: string) {
+  const apiUrl = `${GITHUB_API}/repos/${resolvedRepo}/contents/${BUILD_WORKFLOW_PATH}`;
+  const existingResp = await fetch(`${apiUrl}?ref=${branch}`, { headers: getGitHubHeaders(token) });
+  if (existingResp.ok) return { ready: true, created: false };
+
+  if (existingResp.status !== 404) {
+    return { ready: false, created: false, status: existingResp.status, details: await existingResp.text() };
+  }
+
+  const createResp = await fetch(apiUrl, {
+    method: "PUT",
+    headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: "chore: add APK build workflow",
+      content: EMBEDDED_BUILD_WORKFLOW_BASE64,
+      branch,
+    }),
+  });
+
+  if (!createResp.ok) {
+    return { ready: false, created: false, status: createResp.status, details: await createResp.text() };
+  }
+
+  console.log("Build workflow uploaded successfully");
+  return { ready: true, created: true };
+}
+
+async function dispatchBuildWorkflow(resolvedRepo: string, branch: string, token: string, inputs: Record<string, string>) {
+  const dispatchResp = await fetch(
+    `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${BUILD_WORKFLOW_FILE}/dispatches`,
+    {
+      method: "POST",
+      headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: branch, inputs }),
+    }
+  );
+
+  if (dispatchResp.status !== 404) return dispatchResp;
+
+  return fetch(`${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${encodeURIComponent(BUILD_WORKFLOW_PATH)}/dispatches`, {
+    method: "POST",
+    headers: { ...getGitHubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ ref: branch, inputs }),
+  });
 }
 
 async function fetchRunProgress(runId: string, resolvedRepo: string, githubToken: string) {
@@ -290,6 +339,16 @@ serve(async (req) => {
       const repoData = await repoResp.json();
       const defaultBranch = repoData.default_branch || "main";
 
+      const workflowState = await ensureBuildWorkflow(resolvedRepo, defaultBranch, githubToken);
+      if (!workflowState.ready) {
+        return new Response(JSON.stringify({
+          error: "APK build workflow is missing or inaccessible",
+          details: workflowState.details,
+          hint: "Make sure .github/workflows/build-apk.yml exists on the repository default branch and the GitHub token has Actions/workflow permission.",
+        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (workflowState.created) await new Promise((r) => setTimeout(r, 3000));
+
       let hasCustomIcon = false;
       if (customIcon && typeof customIcon === "string" && customIcon.length > 100) {
         console.log("Uploading custom icon to repo...");
@@ -297,21 +356,20 @@ serve(async (req) => {
         if (hasCustomIcon) await new Promise((r) => setTimeout(r, 2000));
       }
 
-      const dispatchResp = await fetch(
-        `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/dispatches`,
-        {
-          method: "POST",
-          headers: { ...getGitHubHeaders(githubToken), "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ref: defaultBranch,
-            inputs: { app_url: appUrl, app_name: appName, app_color: appColor || "#22c55e", package_id: safePackageId },
-          }),
-        }
+      const dispatchResp = await dispatchBuildWorkflow(
+        resolvedRepo,
+        defaultBranch,
+        githubToken,
+        { app_url: appUrl, app_name: appName, app_color: appColor || "#22c55e", package_id: safePackageId }
       );
 
       if (!dispatchResp.ok) {
         const errText = await dispatchResp.text();
-        return new Response(JSON.stringify({ error: "Failed to trigger build", details: errText }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({
+          error: "Failed to trigger build",
+          details: errText,
+          hint: "GitHub could not dispatch .github/workflows/build-apk.yml. Verify Actions are enabled for the repository and the token can run workflows.",
+        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       await new Promise((r) => setTimeout(r, 3000));
@@ -320,7 +378,7 @@ serve(async (req) => {
       for (const status of ["queued", ""]) {
         const q = status ? `&status=${status}` : "";
         const runsResp = await fetch(
-          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/build-apk.yml/runs?per_page=1${q}`,
+          `${GITHUB_API}/repos/${resolvedRepo}/actions/workflows/${BUILD_WORKFLOW_FILE}/runs?per_page=1${q}`,
           { headers: getGitHubHeaders(githubToken) }
         );
         if (runsResp.ok) {
