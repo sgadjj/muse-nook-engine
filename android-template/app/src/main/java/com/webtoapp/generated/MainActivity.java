@@ -122,6 +122,20 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 injectBadgeRemover(view);
             }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request != null && request.isForMainFrame()) {
+                    showOfflineView();
+                }
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                showOfflineView();
+            }
         });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
