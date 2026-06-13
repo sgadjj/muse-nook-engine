@@ -220,30 +220,34 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
 
-        webView.loadUrl(addCacheBustParam("APP_URL"));
+        if (isOnline()) {
+            webView.loadUrl(addCacheBustParam("APP_URL"));
+        } else {
+            showOfflineView();
+        }
         hideSystemUI();
     }
 
-    private void requestEssentialPermissions() {
-        java.util.List<String> perms = new java.util.ArrayList<>();
-        String[] base = new String[]{
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-        };
-        for (String p : base) {
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(p);
+    private boolean isOnline() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            if (cm == null) return true;
+            NetworkInfo ni = cm.getActiveNetworkInfo();
+            return ni != null && ni.isConnected();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private void showOfflineView() {
+        runOnUiThread(() -> {
+            View off = findViewById(R.id.offline_view);
+            if (off != null) off.setVisibility(View.VISIBLE);
+            if (webView != null) {
+                webView.setVisibility(View.GONE);
+                try { webView.stopLoading(); } catch (Exception ignored) {}
             }
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS")
-                != PackageManager.PERMISSION_GRANTED) {
-                perms.add("android.permission.POST_NOTIFICATIONS");
-            }
-        }
-        if (!perms.isEmpty()) {
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_RUNTIME_PERMS);
-        }
+        });
     }
 
     private boolean handleSpecialUrl(String url) {
