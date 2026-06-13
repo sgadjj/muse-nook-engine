@@ -62,9 +62,26 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        requestEssentialPermissions();
+        final View offlineView = findViewById(R.id.offline_view);
+        Button retryBtn = findViewById(R.id.retry_button);
+        Button settingsBtn = findViewById(R.id.settings_button);
 
         webView = findViewById(R.id.webview);
+
+        retryBtn.setOnClickListener(v -> {
+            if (isOnline()) {
+                offlineView.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE);
+                webView.loadUrl(addCacheBustParam("APP_URL"));
+            }
+        });
+        settingsBtn.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+
+        webView.setOnLongClickListener(v -> {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        });
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
