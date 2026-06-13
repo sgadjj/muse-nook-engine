@@ -89,6 +89,18 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 return handleSpecialUrl(url);
             }
+
+            @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                injectBadgeRemover(view);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                injectBadgeRemover(view);
+            }
         });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -243,6 +255,35 @@ public class MainActivity extends AppCompatActivity {
             }
             pendingWebPermissionRequest = null;
         }
+    }
+
+    private void injectBadgeRemover(WebView view) {
+        if (view == null) return;
+        String js =
+            "(function(){" +
+            "  var css = '" +
+            "a[href*=\"lovable.dev\"],a[href*=\"lovable.app/?via\"],a[href*=\"gptengineer.app\"]," +
+            "#lovable-badge,[id*=\"lovable-badge\"],[class*=\"lovable-badge\"]," +
+            "[data-lovable-badge],[data-lov-badge],iframe[src*=\"lovable.dev/badge\"]," +
+            "div[style*=\"z-index: 999999\"] a[href*=\"lovable\"]" +
+            "{display:none !important;visibility:hidden !important;opacity:0 !important;pointer-events:none !important;height:0 !important;width:0 !important;}';" +
+            "  var s=document.getElementById('__wta_hide_badge');" +
+            "  if(!s){s=document.createElement('style');s.id='__wta_hide_badge';s.innerHTML=css;(document.head||document.documentElement).appendChild(s);}" +
+            "  function nuke(){" +
+            "    document.querySelectorAll('a').forEach(function(a){" +
+            "      var h=(a.getAttribute('href')||'').toLowerCase();" +
+            "      var t=(a.innerText||'').toLowerCase();" +
+            "      if(h.indexOf('lovable.dev')>-1||h.indexOf('gptengineer.app')>-1||t.indexOf('edit with lovable')>-1||t.indexOf('made with lovable')>-1){" +
+            "        var p=a.closest('div,section,aside')||a; p.remove();" +
+            "      }" +
+            "    });" +
+            "    document.querySelectorAll('iframe[src*=\"lovable\"]').forEach(function(f){f.remove();});" +
+            "  }" +
+            "  nuke();" +
+            "  try{new MutationObserver(nuke).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}" +
+            "  setInterval(nuke,1500);" +
+            "})();";
+        try { view.evaluateJavascript(js, null); } catch (Exception ignored) {}
     }
 
     private String addCacheBustParam(String rawUrl) {
