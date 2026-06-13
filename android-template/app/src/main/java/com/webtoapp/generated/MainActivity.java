@@ -9,6 +9,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PermissionRequest;
@@ -58,9 +62,26 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        requestEssentialPermissions();
+        final View offlineView = findViewById(R.id.offline_view);
+        Button retryBtn = findViewById(R.id.retry_button);
+        Button settingsBtn = findViewById(R.id.settings_button);
 
         webView = findViewById(R.id.webview);
+
+        retryBtn.setOnClickListener(v -> {
+            if (isOnline()) {
+                offlineView.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE);
+                webView.loadUrl(addCacheBustParam("APP_URL"));
+            }
+        });
+        settingsBtn.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
+
+        webView.setOnLongClickListener(v -> {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        });
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -100,6 +121,20 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 injectBadgeRemover(view);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request != null && request.isForMainFrame()) {
+                    showOfflineView();
+                }
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                showOfflineView();
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -185,30 +220,34 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
 
-        webView.loadUrl(addCacheBustParam("APP_URL"));
+        if (isOnline()) {
+            webView.loadUrl(addCacheBustParam("APP_URL"));
+        } else {
+            showOfflineView();
+        }
         hideSystemUI();
     }
 
-    private void requestEssentialPermissions() {
-        java.util.List<String> perms = new java.util.ArrayList<>();
-        String[] base = new String[]{
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
-        };
-        for (String p : base) {
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
-                perms.add(p);
+    private boolean isOnline() {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            if (cm == null) return true;
+            NetworkInfo ni = cm.getActiveNetworkInfo();
+            return ni != null && ni.isConnected();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private void showOfflineView() {
+        runOnUiThread(() -> {
+            View off = findViewById(R.id.offline_view);
+            if (off != null) off.setVisibility(View.VISIBLE);
+            if (webView != null) {
+                webView.setVisibility(View.GONE);
+                try { webView.stopLoading(); } catch (Exception ignored) {}
             }
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS")
-                != PackageManager.PERMISSION_GRANTED) {
-                perms.add("android.permission.POST_NOTIFICATIONS");
-            }
-        }
-        if (!perms.isEmpty()) {
-            ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_RUNTIME_PERMS);
-        }
+        });
     }
 
     private boolean handleSpecialUrl(String url) {
