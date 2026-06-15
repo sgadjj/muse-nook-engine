@@ -22,6 +22,31 @@ on:
         required: true
         default: 'com.webtoapp.app'
         type: string
+      admob_enabled:
+        description: 'Enable AdMob (true/false)'
+        required: false
+        default: 'false'
+        type: string
+      admob_app_id:
+        description: 'AdMob App ID'
+        required: false
+        default: 'ca-app-pub-3940256099942544~3347511713'
+        type: string
+      admob_banner_id:
+        description: 'AdMob Banner Unit ID'
+        required: false
+        default: ''
+        type: string
+      admob_interstitial_id:
+        description: 'AdMob Interstitial Unit ID'
+        required: false
+        default: ''
+        type: string
+      admob_inter_freq:
+        description: 'Interstitial frequency (every N page loads)'
+        required: false
+        default: '3'
+        type: string
 
 jobs:
   build:
@@ -53,25 +78,52 @@ jobs:
           APP_NAME="${{ inputs.app_name }}"
           APP_COLOR="${{ inputs.app_color }}"
           PACKAGE_ID="${{ inputs.package_id }}"
-          
+          ADMOB_ENABLED_V="${{ inputs.admob_enabled }}"
+          ADMOB_APP_ID_V="${{ inputs.admob_app_id }}"
+          ADMOB_BANNER_ID_V="${{ inputs.admob_banner_id }}"
+          ADMOB_INTERSTITIAL_ID_V="${{ inputs.admob_interstitial_id }}"
+          ADMOB_INTER_FREQ_V="${{ inputs.admob_inter_freq }}"
+
+          # Fallback: AdMob APP_ID must never be empty or SDK crashes
+          if [ -z "$ADMOB_APP_ID_V" ]; then
+            ADMOB_APP_ID_V="ca-app-pub-3940256099942544~3347511713"
+          fi
+          [ -z "$ADMOB_ENABLED_V" ] && ADMOB_ENABLED_V="false"
+          [ -z "$ADMOB_INTER_FREQ_V" ] && ADMOB_INTER_FREQ_V="3"
+
           # Escape special characters for sed
-          APP_URL_ESC=$(printf '%s\n' "$APP_URL" | sed 's/[&/\]/\\&/g')
-          APP_NAME_ESC=$(printf '%s\n' "$APP_NAME" | sed 's/[&/\]/\\&/g')
-          APP_COLOR_ESC=$(printf '%s\n' "$APP_COLOR" | sed 's/[&/\]/\\&/g')
-          PACKAGE_ID_ESC=$(printf '%s\n' "$PACKAGE_ID" | sed 's/[&/\]/\\&/g')
-          
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_URL|${APP_URL_ESC}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_NAME|${APP_NAME_ESC}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_COLOR|${APP_COLOR_ESC}|g" {} +
-          find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \) -exec sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID_ESC}|g" {} +
+          esc() { printf '%s\n' "$1" | sed 's/[&/\]/\\&/g'; }
+          APP_URL_ESC=$(esc "$APP_URL")
+          APP_NAME_ESC=$(esc "$APP_NAME")
+          APP_COLOR_ESC=$(esc "$APP_COLOR")
+          PACKAGE_ID_ESC=$(esc "$PACKAGE_ID")
+          ADMOB_ENABLED_ESC=$(esc "$ADMOB_ENABLED_V")
+          ADMOB_APP_ID_ESC=$(esc "$ADMOB_APP_ID_V")
+          ADMOB_BANNER_ID_ESC=$(esc "$ADMOB_BANNER_ID_V")
+          ADMOB_INTERSTITIAL_ID_ESC=$(esc "$ADMOB_INTERSTITIAL_ID_V")
+          ADMOB_INTER_FREQ_ESC=$(esc "$ADMOB_INTER_FREQ_V")
+
+          FILES=$(find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \))
+
+          # Order matters: replace longer/specific tokens BEFORE shorter prefixes.
+          for f in $FILES; do
+            sed -i "s|ADMOB_INTERSTITIAL_ID|${ADMOB_INTERSTITIAL_ID_ESC}|g" "$f"
+            sed -i "s|ADMOB_BANNER_ID|${ADMOB_BANNER_ID_ESC}|g" "$f"
+            sed -i "s|ADMOB_INTER_FREQ|${ADMOB_INTER_FREQ_ESC}|g" "$f"
+            sed -i "s|ADMOB_ENABLED|${ADMOB_ENABLED_ESC}|g" "$f"
+            sed -i "s|ADMOB_APP_ID|${ADMOB_APP_ID_ESC}|g" "$f"
+            sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID_ESC}|g" "$f"
+            sed -i "s|APP_URL|${APP_URL_ESC}|g" "$f"
+            sed -i "s|APP_NAME|${APP_NAME_ESC}|g" "$f"
+            sed -i "s|APP_COLOR|${APP_COLOR_ESC}|g" "$f"
+          done
 
       - name: Generate app icons
         working-directory: android-template
         run: |
           set -e
           sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
-          
-          # Check if custom icon was uploaded to the repo
+
           if [ -f "custom_icon.png" ]; then
             echo "✅ Using custom icon from custom_icon.png"
             for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -91,7 +143,7 @@ jobs:
             COLOR="${{ inputs.app_color }}"
             NAME="${{ inputs.app_name }}"
             LETTER=$(echo "$NAME" | head -c 1 | tr '[:lower:]' '[:upper:]')
-            
+
             if [ -z "$LETTER" ] || ! echo "$LETTER" | grep -qE '^[A-Za-z0-9]$'; then
               LETTER="A"
             fi
