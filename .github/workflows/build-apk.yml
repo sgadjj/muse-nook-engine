@@ -47,11 +47,46 @@ on:
         required: false
         default: '3'
         type: string
+      permission_camera:
+        description: 'Enable camera permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_microphone:
+        description: 'Enable microphone permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_location:
+        description: 'Enable location permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_notifications:
+        description: 'Enable notifications permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_storage:
+        description: 'Enable storage/media permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_phone:
+        description: 'Enable phone call permission'
+        required: false
+        default: 'false'
+        type: string
+      permission_sms:
+        description: 'Enable SMS permission'
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeoutes: 20
 
     steps:
       - name: Checkout
@@ -83,6 +118,13 @@ jobs:
           ADMOB_BANNER_ID_V="${{ inputs.admob_banner_id }}"
           ADMOB_INTERSTITIAL_ID_V="${{ inputs.admob_interstitial_id }}"
           ADMOB_INTER_FREQ_V="${{ inputs.admob_inter_freq }}"
+          PERM_CAMERA_V="${{ inputs.permission_camera }}"
+          PERM_MIC_V="${{ inputs.permission_microphone }}"
+          PERM_LOCATION_V="${{ inputs.permission_location }}"
+          PERM_NOTIFICATIONS_V="${{ inputs.permission_notifications }}"
+          PERM_STORAGE_V="${{ inputs.permission_storage }}"
+          PERM_PHONE_V="${{ inputs.permission_phone }}"
+          PERM_SMS_V="${{ inputs.permission_sms }}"
 
           # Fallback: AdMob APP_ID must never be empty or SDK crashes
           if [ -z "$ADMOB_APP_ID_V" ]; then
@@ -90,6 +132,13 @@ jobs:
           fi
           [ -z "$ADMOB_ENABLED_V" ] && ADMOB_ENABLED_V="false"
           [ -z "$ADMOB_INTER_FREQ_V" ] && ADMOB_INTER_FREQ_V="3"
+          [ -z "$PERM_CAMERA_V" ] && PERM_CAMERA_V="false"
+          [ -z "$PERM_MIC_V" ] && PERM_MIC_V="false"
+          [ -z "$PERM_LOCATION_V" ] && PERM_LOCATION_V="false"
+          [ -z "$PERM_NOTIFICATIONS_V" ] && PERM_NOTIFICATIONS_V="false"
+          [ -z "$PERM_STORAGE_V" ] && PERM_STORAGE_V="false"
+          [ -z "$PERM_PHONE_V" ] && PERM_PHONE_V="false"
+          [ -z "$PERM_SMS_V" ] && PERM_SMS_V="false"
 
           # Escape special characters for sed
           esc() { printf '%s\n' "$1" | sed 's/[&/\]/\\&/g'; }
@@ -102,15 +151,42 @@ jobs:
           ADMOB_BANNER_ID_ESC=$(esc "$ADMOB_BANNER_ID_V")
           ADMOB_INTERSTITIAL_ID_ESC=$(esc "$ADMOB_INTERSTITIAL_ID_V")
           ADMOB_INTER_FREQ_ESC=$(esc "$ADMOB_INTER_FREQ_V")
+          PERM_CAMERA_ESC=$(esc "$PERM_CAMERA_V")
+          PERM_MIC_ESC=$(esc "$PERM_MIC_V")
+          PERM_LOCATION_ESC=$(esc "$PERM_LOCATION_V")
+          PERM_STORAGE_ESC=$(esc "$PERM_STORAGE_V")
+          PERM_PHONE_ESC=$(esc "$PERM_PHONE_V")
+          PERM_SMS_ESC=$(esc "$PERM_SMS_V")
+
+          CAMERA_DECL=""; [ "$PERM_CAMERA_V" = "true" ] && CAMERA_DECL='<uses-permission android:name="android.permission.CAMERA" />'
+          MIC_DECL=""; [ "$PERM_MIC_V" = "true" ] && MIC_DECL='<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'
+          LOCATION_DECL=""; [ "$PERM_LOCATION_V" = "true" ] && LOCATION_DECL='<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />'
+          STORAGE_DECL=""; [ "$PERM_STORAGE_V" = "true" ] && STORAGE_DECL='<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />\n    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />\n    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />\n    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />'
+          NOTIFICATION_DECL=""; [ "$PERM_NOTIFICATIONS_V" = "true" ] && NOTIFICATION_DECL='<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+          PHONE_DECL=""; [ "$PERM_PHONE_V" = "true" ] && PHONE_DECL='<uses-permission android:name="android.permission.CALL_PHONE" />'
+          SMS_DECL=""; [ "$PERM_SMS_V" = "true" ] && SMS_DECL='<uses-permission android:name="android.permission.SEND_SMS" />'
 
           FILES=$(find . -type f \( -name "*.java" -o -name "*.xml" -o -name "*.gradle" \))
 
           # Order matters: replace longer/specific tokens BEFORE shorter prefixes.
           for f in $FILES; do
-            sed -i "s|ADMOB_INTERSTITIAL_ID|${ADMOB_INTERSTITIAL_ID_ESC}|g" "$f"
-            sed -i "s|ADMOB_BANNER_ID|${ADMOB_BANNER_ID_ESC}|g" "$f"
-            sed -i "s|ADMOB_INTER_FREQ|${ADMOB_INTER_FREQ_ESC}|g" "$f"
-            sed -i "s|ADMOB_ENABLED|${ADMOB_ENABLED_ESC}|g" "$f"
+            sed -i "s|__ADMOB_INTERSTITIAL_ID__|${ADMOB_INTERSTITIAL_ID_ESC}|g" "$f"
+            sed -i "s|__ADMOB_BANNER_ID__|${ADMOB_BANNER_ID_ESC}|g" "$f"
+            sed -i "s|__ADMOB_INTER_FREQ__|${ADMOB_INTER_FREQ_ESC}|g" "$f"
+            sed -i "s|__ADMOB_ENABLED__|${ADMOB_ENABLED_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_CAMERA_ENABLED__|${PERM_CAMERA_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_MIC_ENABLED__|${PERM_MIC_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_LOCATION_ENABLED__|${PERM_LOCATION_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_STORAGE_ENABLED__|${PERM_STORAGE_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_PHONE_ENABLED__|${PERM_PHONE_ESC}|g" "$f"
+            sed -i "s|__PERMISSION_SMS_ENABLED__|${PERM_SMS_ESC}|g" "$f"
+            sed -i "s|PERMISSION_CAMERA_DECL|${CAMERA_DECL}|g" "$f"
+            sed -i "s|PERMISSION_MIC_DECL|${MIC_DECL}|g" "$f"
+            sed -i "s|PERMISSION_LOCATION_DECL|${LOCATION_DECL}|g" "$f"
+            sed -i "s|PERMISSION_STORAGE_DECL|${STORAGE_DECL}|g" "$f"
+            sed -i "s|PERMISSION_NOTIFICATION_DECL|${NOTIFICATION_DECL}|g" "$f"
+            sed -i "s|PERMISSION_PHONE_DECL|${PHONE_DECL}|g" "$f"
+            sed -i "s|PERMISSION_SMS_DECL|${SMS_DECL}|g" "$f"
             sed -i "s|ADMOB_APP_ID|${ADMOB_APP_ID_ESC}|g" "$f"
             sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID_ESC}|g" "$f"
             sed -i "s|APP_URL|${APP_URL_ESC}|g" "$f"
