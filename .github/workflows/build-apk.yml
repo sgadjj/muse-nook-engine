@@ -86,7 +86,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeoutes: 20
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
