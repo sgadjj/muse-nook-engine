@@ -22,6 +22,11 @@ on:
         required: true
         default: 'com.webtoapp.app'
         type: string
+      display_scale:
+        description: 'Fixed website display scale: 10-100'
+        required: false
+        default: '100'
+        type: string
       permission_camera:
         description: 'Enable camera permission'
         required: false
@@ -93,6 +98,7 @@ jobs:
           APP_NAME="${{ inputs.app_name }}"
           APP_COLOR="${{ inputs.app_color }}"
           PACKAGE_ID="${{ inputs.package_id }}"
+          DISPLAY_SCALE_V="${{ inputs.display_scale }}"
           PERM_CAMERA_V="${{ inputs.permission_camera }}"
           PERM_MIC_V="${{ inputs.permission_microphone }}"
           PERM_LOCATION_V="${{ inputs.permission_location }}"
@@ -101,6 +107,8 @@ jobs:
           PERM_PHONE_V="${{ inputs.permission_phone }}"
           PERM_SMS_V="${{ inputs.permission_sms }}"
           ORIENTATION_V="${{ inputs.orientation }}"
+
+          case "$DISPLAY_SCALE_V" in 10|20|30|40|50|60|70|80|90|100) ;; *) DISPLAY_SCALE_V="100" ;; esac
 
           [ -z "$PERM_CAMERA_V" ] && PERM_CAMERA_V="false"
           [ -z "$PERM_MIC_V" ] && PERM_MIC_V="false"
@@ -152,6 +160,7 @@ jobs:
             sed -i "s|PERMISSION_PHONE_DECL|${PHONE_DECL}|g" "$f"
             sed -i "s|PERMISSION_SMS_DECL|${SMS_DECL}|g" "$f"
             sed -i "s|APP_PACKAGE_ID|${PACKAGE_ID_ESC}|g" "$f"
+            sed -i "s|APP_SCALE_PERCENT|${DISPLAY_SCALE_V}|g" "$f"
             sed -i "s|APP_URL|${APP_URL_ESC}|g" "$f"
             sed -i "s|APP_NAME|${APP_NAME_ESC}|g" "$f"
             sed -i "s|APP_COLOR|${APP_COLOR_ESC}|g" "$f"
