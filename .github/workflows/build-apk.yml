@@ -1,6 +1,6 @@
 name: Build Native WebView APK
 
-run-name: APK ${{ inputs.build_id }} · ${{ inputs.app_name }}
+run-name: APK ${{ inputs.build_id }} Â· ${{ inputs.app_name }}
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ on:
         default: 'com.webtoapp.app'
         type: string
       display_scale:
-        description: 'Fixed website display scale: 10-100'
+        description: 'Fixed website content scale: 10-100'
         required: false
         default: '100'
         type: string
