@@ -1,8 +1,14 @@
 name: Build Native WebView APK
 
+run-name: APK ${{ inputs.build_id }} · ${{ inputs.app_name }}
+
 on:
   workflow_dispatch:
     inputs:
+      build_id:
+        description: 'Unique build correlation ID'
+        required: true
+        type: string
       app_url:
         description: 'Target website URL'
         required: true
